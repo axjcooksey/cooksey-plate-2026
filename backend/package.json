@@ -7,6 +7,12 @@
     "start": "node dist/index.js",
     "dev": "nodemon src/index.ts",
     "build": "tsc",
+    "setup-db": "npx ts-node scripts/simple-setup.ts",
+    "test-squiggle": "npx ts-node scripts/test-squiggle.ts",
+    "test-api": "npx ts-node scripts/test-api.ts",
+    "test-all-apis": "npx ts-node scripts/test-all-apis.ts",
+    "test-squiggle-complete": "npx ts-node scripts/test-squiggle-complete.ts",
+    "print-games": "npx ts-node scripts/print-games.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -23,9 +29,11 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
     "@types/node": "^24.2.1",
     "nodemon": "^3.1.10",
+    "ts-node": "^10.9.2",
     "typescript": "^5.9.2"
   }
 }

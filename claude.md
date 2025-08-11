@@ -40,13 +40,18 @@ const ADMINS = ["Alex", "Phil"]; // Can tip for anyone
 
 ## Database Schema
 ```sql
--- Squiggle API Mirror (complete copy)
+-- AFL Teams table
+teams (
+  id INTEGER PRIMARY KEY, -- Squiggle team ID
+  name, abbrev, logo, primary_colour, secondary_colour
+)
+
+-- Squiggle API Mirror (complete copy with all fields)
 squiggle_games (
-  id,
-  squiggle_game_key VARCHAR(3), -- RoundNumber + GameNumber (e.g., "001", "029", "235")
-  round_number, game_number, year,
-  hteam, ateam, hscore, ascore,
-  date, venue, complete,
+  id, squiggle_game_key VARCHAR(3), -- RoundNumber + GameNumber (e.g., "001", "029", "235")
+  round_number, game_number, year, complete, -- complete: 0-100 (100 = finished)
+  hteam, ateam, hscore, ascore, hgoals, agoals, hbehinds, abehinds,
+  date, venue, winner, localtime, hmargin, is_final, is_grand_final,
   raw_json -- Complete API response
 )
 
@@ -55,10 +60,9 @@ users (id, name, email, family_group_id, role)
 family_groups (id, name)
 rounds (id, round_number, year, status, lockout_time)
 games (
-  id, 
-  squiggle_game_key VARCHAR(3), -- Links to squiggle_games
+  id, squiggle_game_key VARCHAR(3), -- Links to squiggle_games
   round_id, home_team, away_team, 
-  home_score, away_score, start_time, venue
+  home_score, away_score, start_time, venue, is_complete
 )
 tips (id, user_id, game_id, squiggle_game_key, round_id, selected_team, is_correct)
 
@@ -71,12 +75,20 @@ tips (id, user_id, game_id, squiggle_game_key, round_id, selected_team, is_corre
 
 ## API Endpoints
 ```
-GET    /api/rounds/current          - Get current round info
+-- Squiggle Integration
+GET    /api/squiggle/games/:year    - Get games by year/round
+GET    /api/squiggle/teams          - Get all AFL teams
+POST   /api/squiggle/update/:year   - Manually trigger Squiggle update
+POST   /api/squiggle/update-teams   - Update teams from Squiggle API
+
+-- Core Application
+GET    /api/rounds/current/:year    - Get current round info
 GET    /api/rounds/:id/games        - Get games for a round
 POST   /api/tips                    - Submit tips
 GET    /api/tips/round/:roundId     - Get all tips for a round
-GET    /api/ladder                  - Get current ladder standings
-POST   /api/admin/scheduler/trigger - Manually trigger Squiggle update
+GET    /api/ladder/:year            - Get ladder standings
+GET    /api/users                   - Get all users
+GET    /api/family-groups           - Get family groups
 POST   /api/admin/import/excel      - Import historical Excel data
 ```
 
@@ -96,6 +108,8 @@ POST   /api/admin/import/excel      - Import historical Excel data
    - Squiggle API checked twice daily (6 AM, 8 PM AEST)
    - Live updates every 5 minutes during games
    - Cache results to avoid API rate limits
+   - Complete field: 0 = not started, 1-99 = in progress, 100 = finished
+   - Teams updated daily from Squiggle API
 
 ## Current Development Priority
 1. Initialize project with proper folder structure
