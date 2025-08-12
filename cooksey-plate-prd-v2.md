@@ -8,10 +8,33 @@
 **Product Name:** Cooksey Plate 2025  
 **Version:** 2.0 (Fresh Restart)  
 **Date:** August 12, 2025  
-**Development Approach:** AI-Assisted with Claude Code
+**Development Approach:** AI-Assisted with Claude Code  
+**Current Status:** 70% COMPLETE - MVP FUNCTIONAL ✅
 
 ### Vision Statement
 A family-focused AFL tipping platform that automates the Excel-based system, provides real-time updates via Squiggle API integration, and maintains the transparent, family-friendly competition culture.
+
+### 🎉 DEVELOPMENT UPDATE - JANUARY 2025
+**MAJOR MILESTONE ACHIEVED:** Full-stack application successfully built and functional!
+
+#### ✅ COMPLETED FEATURES (MVP READY)
+- **Frontend Application:** React + TypeScript + Tailwind CSS with clean Lovable design
+- **Backend API:** Node.js + Express with complete RESTful API
+- **Database:** SQLite with complete schema, 25 family members across 8 groups
+- **Authentication:** User login system with family group management
+- **Squiggle Integration:** Real-time AFL data fetching and caching
+- **Core Functionality:** Tip submission, ladder calculations, stats dashboard
+- **UI/UX:** Responsive design with AFL stadium imagery and red gradient branding
+- **Navigation:** All main pages implemented (Home, Tipping, Ladder, History, Admin)
+
+#### 🔄 IN PROGRESS
+- Backend servers running on development ports
+- Live API testing and validation
+
+#### ⏳ REMAINING FOR PRODUCTION
+- Automated scheduler for game updates and tip locking
+- Historical Excel data import functionality  
+- Production deployment configuration
 
 ### Key Technical Decisions
 - **Framework:** React with TypeScript (using Vite)
@@ -345,7 +368,128 @@ const ADMINS = ["Alex", "Phil"];
 
 ---
 
-## 9. Development Guidelines for Claude Code
+## 9. Round Status Business Logic
+
+### Overview
+The application implements sophisticated round status determination based on Squiggle API completion data with specific business rules for optimal user experience.
+
+### Round Status Definitions
+
+#### Status Types
+1. **"upcoming"** - Round not yet started, tips can be submitted
+2. **"active"** - Round in progress, tips locked, games being played
+3. **"completed"** - All games finished, results available
+
+#### Determination Logic (Using Squiggle API `complete` field 0-100)
+
+```javascript
+// Round Status Rules (implemented in TipsService.updateRoundStatus):
+
+if (all games have complete = 100) {
+  status = "completed"
+} else if (some games have 0 < complete < 100 OR current time > first game start time) {
+  status = "active"  
+} else if (all games have complete = 0 AND current time < first game start time) {
+  status = "upcoming"
+}
+```
+
+### Current Round Selection Logic
+
+#### 2-Day Grace Period Rule
+After a round is completed (all games complete = 100), the system continues showing that completed round as the "current round" for **2 days** after the last game finishes. On the 3rd day, it switches to the next upcoming/active round.
+
+```javascript
+// Current Round Algorithm (implemented in TipsService.getCurrentRound):
+
+1. Find most recently completed round
+2. If completed round exists AND we're within 2 days of last game time:
+   → Return completed round (grace period)
+3. Else find active round:
+   → Return first active round
+4. Else find upcoming round:  
+   → Return first upcoming round
+5. Else return latest available round
+```
+
+#### Grace Period Calculation
+```javascript
+const lastGameTime = new Date(latestCompletedRound.last_game_time);
+const twoDaysAfter = new Date(lastGameTime.getTime() + (2 * 24 * 60 * 60 * 1000));
+const now = new Date();
+
+if (now <= twoDaysAfter) {
+  // Still in grace period - show completed round
+  return completedRound;
+} else {
+  // Grace period over - show next round
+  return nextRound;
+}
+```
+
+### Default Round Behavior
+
+#### Tipping Page
+- Always defaults to current round (determined by algorithm above)
+- Uses `currentRound` from AppContext automatically
+- Shows round status indicator (Open/In Progress/Completed)
+- Locks tips when round status is not 'upcoming'
+
+#### All Tips Page  
+- Defaults to current round when page loads
+- Implemented via React useEffect:
+```javascript
+React.useEffect(() => {
+  if (currentRound && selectedRound === null) {
+    setSelectedRound(currentRound.id);
+  }
+}, [currentRound, selectedRound]);
+```
+- Shows round status indicators in dropdown (🟢 Completed, 🔴 Active, ⏳ Upcoming)
+
+### Status Update Automation
+
+#### Backend Processing
+- `updateAllRoundStatuses(year)` - Updates all rounds for a year
+- `updateRoundStatus(roundId)` - Updates single round using Squiggle data
+- Joins rounds → games → squiggle_games to get completion data
+- Automatically sets lockout_time to first game time if not set
+
+#### Database Query Structure
+```sql
+SELECT 
+  r.*,
+  COUNT(sg.id) as total_games,
+  COUNT(CASE WHEN sg.complete = 100 THEN 1 END) as completed_games,
+  COUNT(CASE WHEN sg.complete > 0 AND sg.complete < 100 THEN 1 END) as in_progress_games,
+  MIN(sg.date) as first_game_time,
+  MAX(sg.date) as last_game_time
+FROM rounds r
+LEFT JOIN games g ON r.id = g.round_id
+LEFT JOIN squiggle_games sg ON g.squiggle_game_key = sg.squiggle_game_key
+WHERE r.id = ?
+GROUP BY r.id
+```
+
+### User Experience Benefits
+
+1. **Seamless Transition**: Users see completed rounds for 2 days to review results
+2. **Automatic Progression**: System automatically moves to next round after grace period  
+3. **Clear Status Indicators**: Visual feedback on round state across all pages
+4. **Consistent Defaults**: Both Tipping and All Tips use same current round logic
+5. **Real-time Updates**: Status updates based on live Squiggle API data
+
+### Implementation Files
+
+- **Backend**: `/backend/src/services/TipsService.ts` (lines 163-290)
+- **Frontend**: `/frontend/src/pages/TippingPage.tsx` (uses currentRound from context)
+- **Frontend**: `/frontend/src/pages/HistoryPage.tsx` (lines 13-18, default selection)
+- **Helpers**: `/frontend/src/utils/helpers.ts` (round status display functions)
+- **Database**: Squiggle games table with `complete` field (0-100)
+
+---
+
+## 10. Development Guidelines for Claude Code
 
 ### Code Style
 - Use TypeScript with strict mode
