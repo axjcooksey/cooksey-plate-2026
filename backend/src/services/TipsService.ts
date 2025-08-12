@@ -159,10 +159,40 @@ export class TipsService {
   }
 
   /**
-   * Get current round for a year
+   * Get current round for a year using business logic with 2-day grace period
    */
   async getCurrentRound(year: number): Promise<Round | null> {
-    // First try to find an active round
+    // First, update all round statuses to ensure they're current
+    await this.updateAllRoundStatuses(year);
+    
+    // Find the most recently completed round
+    const latestCompletedRound = await this.db.get(`
+      SELECT 
+        r.*,
+        MAX(sg.date) as last_game_time
+      FROM rounds r
+      LEFT JOIN games g ON r.id = g.round_id
+      LEFT JOIN squiggle_games sg ON g.squiggle_game_key = sg.squiggle_game_key
+      WHERE r.year = ? AND r.status = 'completed'
+      GROUP BY r.id
+      ORDER BY r.round_number DESC
+      LIMIT 1
+    `, [year]);
+
+    const now = new Date();
+    
+    // Check if we're still in the 2-day grace period after the latest completed round
+    if (latestCompletedRound && latestCompletedRound.last_game_time) {
+      const lastGameTime = new Date(latestCompletedRound.last_game_time);
+      const twoDaysAfter = new Date(lastGameTime.getTime() + (2 * 24 * 60 * 60 * 1000));
+      
+      if (now <= twoDaysAfter) {
+        // Still in grace period, show the completed round
+        return latestCompletedRound;
+      }
+    }
+
+    // Grace period over or no completed rounds, find active round
     let round = await this.db.get(`
       SELECT * FROM rounds 
       WHERE year = ? AND status = 'active'
@@ -178,7 +208,7 @@ export class TipsService {
       `, [year]);
     }
 
-    // If no upcoming rounds, get the latest round
+    // If still no round, get the latest round available
     if (!round) {
       round = await this.db.get(`
         SELECT * FROM rounds 
@@ -191,17 +221,33 @@ export class TipsService {
   }
 
   /**
-   * Update round status based on games
+   * Update all round statuses for a year
+   */
+  async updateAllRoundStatuses(year: number): Promise<void> {
+    const rounds = await this.db.all(`
+      SELECT id FROM rounds WHERE year = ?
+    `, [year]);
+
+    for (const round of rounds) {
+      await this.updateRoundStatus(round.id);
+    }
+  }
+
+  /**
+   * Update round status based on Squiggle game completion (complete field 0-100)
    */
   async updateRoundStatus(roundId: number): Promise<void> {
     const roundInfo = await this.db.get(`
       SELECT 
         r.*,
-        COUNT(g.id) as total_games,
-        COUNT(CASE WHEN g.is_complete = 1 THEN 1 END) as completed_games,
-        MIN(g.start_time) as first_game_time
+        COUNT(sg.id) as total_games,
+        COUNT(CASE WHEN sg.complete = 100 THEN 1 END) as completed_games,
+        COUNT(CASE WHEN sg.complete > 0 AND sg.complete < 100 THEN 1 END) as in_progress_games,
+        MIN(sg.date) as first_game_time,
+        MAX(sg.date) as last_game_time
       FROM rounds r
       LEFT JOIN games g ON r.id = g.round_id
+      LEFT JOIN squiggle_games sg ON g.squiggle_game_key = sg.squiggle_game_key
       WHERE r.id = ?
       GROUP BY r.id
     `, [roundId]);
@@ -209,13 +255,21 @@ export class TipsService {
     if (!roundInfo) return;
 
     let newStatus = roundInfo.status;
+    const now = new Date();
     
-    // Determine status based on games
-    if (roundInfo.completed_games === roundInfo.total_games && roundInfo.total_games > 0) {
+    // Implement business logic for round status
+    // Priority 1: Check if all games are completed first
+    if (roundInfo.total_games > 0 && roundInfo.completed_games === roundInfo.total_games) {
+      // All games complete (complete = 100) -> Round is completed
       newStatus = 'completed';
-    } else if (roundInfo.first_game_time && new Date() >= new Date(roundInfo.first_game_time)) {
+    } else if (roundInfo.in_progress_games > 0) {
+      // Some games in progress (0 < complete < 100) -> Round is active
+      newStatus = 'active';
+    } else if (roundInfo.first_game_time && now >= new Date(roundInfo.first_game_time)) {
+      // Current time is after first game start but no games in progress -> Round is active (started but not updated)
       newStatus = 'active';
     } else {
+      // All games complete = 0 AND current time is before first game -> Round is upcoming
       newStatus = 'upcoming';
     }
 
