@@ -42,12 +42,20 @@ export class TipsService {
           continue;
         }
 
-        // Insert or update tip
+        // Insert or update tip with margin prediction support
         await this.db.run(`
           INSERT OR REPLACE INTO tips 
-          (user_id, game_id, squiggle_game_key, round_id, selected_team, updated_at)
-          VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-        `, [actualUserId, tip.game_id, tip.squiggle_game_key, game.round_id, tip.selected_team]);
+          (user_id, game_id, squiggle_game_key, round_id, selected_team, margin_prediction, is_margin_game, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        `, [
+          actualUserId, 
+          tip.game_id, 
+          tip.squiggle_game_key, 
+          game.round_id, 
+          tip.selected_team,
+          tip.margin_prediction || null,
+          tip.is_margin_game ? 1 : 0
+        ]);
 
         submittedCount++;
 
@@ -375,6 +383,144 @@ export class TipsService {
       LEFT JOIN rounds r ON g.round_id = r.id
       WHERE g.round_id = ?
       ORDER BY g.start_time
+    `, [roundId]);
+  }
+
+  /**
+   * Get finals configuration for a round
+   */
+  async getFinalsConfig(roundNumber: number): Promise<any> {
+    return await this.db.get(`
+      SELECT * FROM finals_config 
+      WHERE round_number = ?
+    `, [roundNumber]);
+  }
+
+  /**
+   * Determine if a game requires margin prediction
+   */
+  async isMarginGame(gameId: number, roundNumber: number): Promise<boolean> {
+    // Check if this is a finals round
+    if (roundNumber < 25 || roundNumber > 28) return false;
+    
+    const finalsConfig = await this.getFinalsConfig(roundNumber);
+    if (!finalsConfig || !finalsConfig.requires_margin) return false;
+    
+    // Get all games for this round ordered by start time
+    const roundGames = await this.db.all(`
+      SELECT id, start_time FROM games g
+      LEFT JOIN rounds r ON g.round_id = r.id
+      WHERE r.round_number = ? AND r.year = 2025
+      ORDER BY g.start_time
+    `, [roundNumber]);
+    
+    if (!roundGames || roundGames.length === 0) return false;
+    
+    // Check position based on config
+    if (finalsConfig.margin_game_position === 'last') {
+      const lastGame = roundGames[roundGames.length - 1];
+      return lastGame.id === gameId;
+    } else if (finalsConfig.margin_game_position === 'first') {
+      const firstGame = roundGames[0];
+      return firstGame.id === gameId;
+    } else if (finalsConfig.margin_game_position === 'all') {
+      return true;
+    }
+    
+    return false;
+  }
+
+  /**
+   * Calculate margin differences and update tips after game completion
+   */
+  async updateMarginPredictions(gameId: number): Promise<void> {
+    // Get game result with actual margin
+    const game = await this.db.get(`
+      SELECT 
+        g.*,
+        sg.winner,
+        sg.hmargin,
+        ABS(sg.hscore - sg.ascore) as actual_margin
+      FROM games g
+      LEFT JOIN squiggle_games sg ON g.squiggle_game_key = sg.squiggle_game_key
+      WHERE g.id = ? AND g.is_complete = 1
+    `, [gameId]);
+
+    if (!game || !game.winner) return;
+
+    // Update margin differences for all margin predictions for this game
+    await this.db.run(`
+      UPDATE tips 
+      SET margin_difference = ABS(? - COALESCE(margin_prediction, 0))
+      WHERE game_id = ? AND is_margin_game = 1 AND margin_prediction IS NOT NULL
+    `, [game.actual_margin, gameId]);
+
+    console.log(`Updated margin predictions for game ${gameId}, actual margin: ${game.actual_margin}`);
+  }
+
+  /**
+   * Determine round winner based on margin predictions (closest wins)
+   */
+  async calculateMarginRoundWinner(roundId: number): Promise<any> {
+    // Get all margin predictions for this round
+    const marginTips = await this.db.all(`
+      SELECT 
+        t.user_id,
+        t.margin_prediction,
+        t.margin_difference,
+        t.selected_team,
+        t.is_correct,
+        u.name as user_name,
+        g.home_team,
+        g.away_team
+      FROM tips t
+      LEFT JOIN users u ON t.user_id = u.id
+      LEFT JOIN games g ON t.game_id = g.id
+      WHERE t.round_id = ? 
+        AND t.is_margin_game = 1 
+        AND t.margin_prediction IS NOT NULL
+        AND t.margin_difference IS NOT NULL
+        AND t.is_correct = 1
+      ORDER BY t.margin_difference ASC
+    `, [roundId]);
+
+    if (!marginTips || marginTips.length === 0) return null;
+
+    // Find the closest margin prediction (smallest difference)
+    const closestMargin = marginTips[0].margin_difference;
+    const winners = marginTips.filter(tip => tip.margin_difference === closestMargin);
+
+    // Insert round winners
+    for (const winner of winners) {
+      await this.db.run(`
+        INSERT OR REPLACE INTO round_winners 
+        (round_id, user_id, win_type, margin_difference, points_awarded)
+        VALUES (?, ?, 'margin', ?, 1)
+      `, [roundId, winner.user_id, winner.margin_difference]);
+    }
+
+    return {
+      winners: winners.map(w => ({
+        user_id: w.user_id,
+        user_name: w.user_name,
+        margin_difference: w.margin_difference
+      })),
+      margin_difference: closestMargin
+    };
+  }
+
+  /**
+   * Get round winners for a specific round
+   */
+  async getRoundWinners(roundId: number): Promise<any[]> {
+    return await this.db.all(`
+      SELECT 
+        rw.*,
+        u.name as user_name
+      FROM round_winners rw
+      LEFT JOIN users u ON rw.user_id = u.id
+      WHERE rw.round_id = ?
+      ORDER BY rw.margin_difference ASC
     `, [roundId]);
   }
 }

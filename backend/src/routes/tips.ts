@@ -237,4 +237,137 @@ router.post('/game/:gameId/update-correctness', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/tips/finals-config/:roundNumber
+ * Get finals configuration for a round
+ */
+router.get('/finals-config/:roundNumber', async (req, res) => {
+  try {
+    await initializeServices();
+    
+    const roundNumber = parseInt(req.params.roundNumber);
+    const config = await tipsService.getFinalsConfig(roundNumber);
+    
+    res.json({
+      success: true,
+      data: config
+    } as ApiResponse);
+
+  } catch (error) {
+    console.error('Error fetching finals config:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch finals config',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    } as ApiResponse);
+  }
+});
+
+/**
+ * GET /api/tips/margin-game/:gameId/:roundNumber
+ * Check if a game requires margin prediction
+ */
+router.get('/margin-game/:gameId/:roundNumber', async (req, res) => {
+  try {
+    await initializeServices();
+    
+    const gameId = parseInt(req.params.gameId);
+    const roundNumber = parseInt(req.params.roundNumber);
+    const isMargin = await tipsService.isMarginGame(gameId, roundNumber);
+    
+    res.json({
+      success: true,
+      data: { is_margin_game: isMargin }
+    } as ApiResponse);
+
+  } catch (error) {
+    console.error('Error checking margin game:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to check margin game',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    } as ApiResponse);
+  }
+});
+
+/**
+ * POST /api/tips/game/:gameId/update-margins
+ * Update margin predictions after game completion
+ */
+router.post('/game/:gameId/update-margins', async (req, res) => {
+  try {
+    await initializeServices();
+    
+    const gameId = parseInt(req.params.gameId);
+    await tipsService.updateMarginPredictions(gameId);
+    
+    res.json({
+      success: true,
+      message: 'Margin predictions updated successfully'
+    } as ApiResponse);
+
+  } catch (error) {
+    console.error('Error updating margin predictions:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update margin predictions',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    } as ApiResponse);
+  }
+});
+
+/**
+ * POST /api/tips/round/:roundId/calculate-margin-winner
+ * Calculate round winner based on margin predictions
+ */
+router.post('/round/:roundId/calculate-margin-winner', async (req, res) => {
+  try {
+    await initializeServices();
+    
+    const roundId = parseInt(req.params.roundId);
+    const result = await tipsService.calculateMarginRoundWinner(roundId);
+    
+    res.json({
+      success: true,
+      data: result,
+      message: result ? `Found ${result.winners.length} margin winner(s)` : 'No margin winners found'
+    } as ApiResponse);
+
+  } catch (error) {
+    console.error('Error calculating margin winner:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to calculate margin winner',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    } as ApiResponse);
+  }
+});
+
+/**
+ * GET /api/tips/round/:roundId/winners
+ * Get round winners for a specific round
+ */
+router.get('/round/:roundId/winners', async (req, res) => {
+  try {
+    await initializeServices();
+    
+    const roundId = parseInt(req.params.roundId);
+    const winners = await tipsService.getRoundWinners(roundId);
+    
+    res.json({
+      success: true,
+      data: winners,
+      count: winners.length
+    } as ApiResponse);
+
+  } catch (error) {
+    console.error('Error fetching round winners:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch round winners',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    } as ApiResponse);
+  }
+});
+
 export default router;

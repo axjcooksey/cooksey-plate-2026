@@ -108,16 +108,26 @@ export class UserService {
       // Admins can tip for anyone
       return await this.getAllUsers();
     } else {
-      // Regular users can tip for their family group
-      return await this.db.all(`
-        SELECT 
-          u.*,
-          fg.name as family_group_name
-        FROM users u
-        LEFT JOIN family_groups fg ON u.family_group_id = fg.id
-        WHERE u.family_group_id = ?
-        ORDER BY u.name
+      // Check if user is in "Individual" family group
+      const userFamilyGroup = await this.db.get(`
+        SELECT name FROM family_groups WHERE id = ?
       `, [user.family_group_id]);
+      
+      if (userFamilyGroup?.name?.includes('Individual')) {
+        // Individual users can only tip for themselves
+        return [user];
+      } else {
+        // Regular family group users can tip for their family group
+        return await this.db.all(`
+          SELECT 
+            u.*,
+            fg.name as family_group_name
+          FROM users u
+          LEFT JOIN family_groups fg ON u.family_group_id = fg.id
+          WHERE u.family_group_id = ?
+          ORDER BY u.name
+        `, [user.family_group_id]);
+      }
     }
   }
 
@@ -134,6 +144,16 @@ export class UserService {
 
     // Admins can tip for anyone
     if (user.role === 'admin') return true;
+
+    // Check if user is in "Individual" family group
+    const userFamilyGroup = await this.db.get(`
+      SELECT name FROM family_groups WHERE id = ?
+    `, [user.family_group_id]);
+    
+    if (userFamilyGroup?.name?.includes('Individual')) {
+      // Individual users can only tip for themselves
+      return false;
+    }
 
     // Users can tip for family group members
     return user.family_group_id === targetUser.family_group_id;
