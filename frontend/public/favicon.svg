@@ -1,0 +1,24 @@
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="16" cy="16" r="15" fill="#dc2626" stroke="#991b1b" stroke-width="1"/>
+  
+  <!-- AFL Football Shape (oval) -->
+  <ellipse cx="16" cy="16" rx="5" ry="10" fill="#b91c1c" stroke="#7f1d1d" stroke-width="0.5"/>
+  
+  <!-- Central seam line -->
+  <line x1="16" y1="8" x2="16" y2="24" stroke="#ffffff" stroke-width="1.5"/>
+  
+  <!-- Cross seam at center -->
+  <line x1="12" y1="16" x2="20" y2="16" stroke="#ffffff" stroke-width="1"/>
+  
+  <!-- Football laces/stitching -->
+  <g stroke="#ffffff" stroke-width="0.8" fill="none">
+    <line x1="14.5" y1="13" x2="17.5" y2="13"/>
+    <line x1="14.5" y1="15" x2="17.5" y2="15"/>
+    <line x1="14.5" y1="17" x2="17.5" y2="17"/>
+    <line x1="14.5" y1="19" x2="17.5" y2="19"/>
+  </g>
+  
+  <!-- Highlight for 3D effect -->
+  <ellipse cx="14" cy="12" rx="1.5" ry="2.5" fill="#ef4444" opacity="0.7"/>
+</svg>
