@@ -101,6 +101,25 @@ router.get('/:id/games', async (req, res) => {
     await initializeServices();
     
     const roundId = parseInt(req.params.id);
+    
+    // Validate roundId
+    if (isNaN(roundId) || req.params.id === 'null') {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid round ID',
+        message: 'Round ID must be a valid number'
+      });
+    }
+    
+    // Validate tipsService is initialized
+    if (!tipsService) {
+      return res.status(500).json({
+        success: false,
+        error: 'Service initialization failed',
+        message: 'TipsService is not properly initialized'
+      });
+    }
+    
     const games = await tipsService.getGamesForTipping(roundId);
     
     res.json({
