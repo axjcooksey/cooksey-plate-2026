@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generate AFL Football Favicon</title>
+</head>
+<body>
+    <canvas id="canvas" width="32" height="32" style="border: 1px solid black; image-rendering: pixelated; width: 128px; height: 128px;"></canvas>
+    <br><br>
+    <button onclick="downloadFavicon()">Download PNG Favicon</button>
+    
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Clear canvas with white background
+        ctx.fillStyle = '#dc2626'; // Red background
+        ctx.fillRect(0, 0, 32, 32);
+        
+        // Draw AFL football shape (oval)
+        ctx.fillStyle = '#991b1b'; // Dark red
+        ctx.beginPath();
+        ctx.ellipse(16, 16, 5, 10, 0, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        // Draw central seam line
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(16, 8);
+        ctx.lineTo(16, 24);
+        ctx.stroke();
+        
+        // Draw cross seam
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(12, 16);
+        ctx.lineTo(20, 16);
+        ctx.stroke();
+        
+        // Draw laces
+        ctx.lineWidth = 1;
+        const laceY = [13, 15, 17, 19];
+        laceY.forEach(y => {
+            ctx.beginPath();
+            ctx.moveTo(14.5, y);
+            ctx.lineTo(17.5, y);
+            ctx.stroke();
+        });
+        
+        function downloadFavicon() {
+            const link = document.createElement('a');
+            link.download = 'favicon.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+    </script>
+</body>
+</html>
