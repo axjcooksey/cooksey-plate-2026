@@ -316,4 +316,69 @@ router.post('/update-teams', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/squiggle/sync-logs
+ * Get latest sync operation logs for Squiggle API
+ */
+router.get('/sync-logs', async (req, res) => {
+  try {
+    await initializeServices();
+    
+    // Get latest sync for each type
+    const latestSquiggleSync = await db.get(`
+      SELECT * FROM import_logs 
+      WHERE import_type = 'squiggle'
+      ORDER BY created_at DESC 
+      LIMIT 1
+    `);
+    
+    const latestTeamsSync = await db.get(`
+      SELECT * FROM import_logs 
+      WHERE import_type = 'teams'
+      ORDER BY created_at DESC 
+      LIMIT 1
+    `);
+    
+    // Get recent activity (last 20 operations)
+    const recentActivity = await db.all(`
+      SELECT * FROM import_logs 
+      WHERE import_type IN ('squiggle', 'teams')
+      ORDER BY created_at DESC 
+      LIMIT 20
+    `);
+    
+    // Get success/failure counts for last 24 hours
+    const last24hStats = await db.all(`
+      SELECT 
+        import_type,
+        status,
+        COUNT(*) as count,
+        SUM(records_processed) as total_records
+      FROM import_logs 
+      WHERE created_at >= datetime('now', '-24 hours')
+        AND import_type IN ('squiggle', 'teams')
+      GROUP BY import_type, status
+      ORDER BY import_type, status
+    `);
+    
+    res.json({
+      success: true,
+      data: {
+        latestSquiggleSync,
+        latestTeamsSync,
+        recentActivity,
+        last24hStats
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching sync logs:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch sync logs',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 export default router;

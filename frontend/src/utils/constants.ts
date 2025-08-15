@@ -49,9 +49,9 @@ export const FAMILY_COLORS = [
 // App navigation
 export const NAVIGATION_ITEMS = [
   { name: 'Home', path: '/', icon: 'home' },
-  { name: 'Tipping', path: '/tipping', icon: 'clipboard' },
+  { name: 'Enter Tips', path: '/tipping', icon: 'clipboard' },
   { name: 'Ladder', path: '/ladder', icon: 'trophy' },
-  { name: 'History', path: '/history', icon: 'calendar' },
+  { name: 'View All Tips', path: '/history', icon: 'calendar' },
 ] as const;
 
 // Admin navigation (additional items for admins)

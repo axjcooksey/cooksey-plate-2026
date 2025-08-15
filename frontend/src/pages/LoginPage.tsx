@@ -23,7 +23,7 @@ export default function LoginPage() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
-          <p className="mt-3 text-sm text-gray-600">Loading family members...</p>
+          <p className="mt-3 text-sm text-gray-600">Loading tipsters...</p>
         </div>
       </div>
     );
@@ -40,8 +40,11 @@ export default function LoginPage() {
           {/* Title and Subtitle - Centered above everything */}
           <div className="text-center mb-12">
             <h1 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-4">
-              Cooksey Plate – Family AFL Tipping Competition
+              Cooksey Plate
             </h1>
+            <h2 className ="text-2  xl lg:text-2xl font-semibold text-red-600 mb-2">
+              Footy Tipping
+            </h2>
             <p className="text-xl text-gray-600 leading-relaxed">
               Tip every round, track your form, and battle for everlasting family glory.
             </p>

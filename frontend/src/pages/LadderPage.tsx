@@ -1,42 +1,78 @@
 
 import { useApp } from '../contexts/AppContext';
-import { useLadder } from '../hooks/useApi';
+import { useLadder, useUsers } from '../hooks/useApi';
 import { getRankDisplay, formatPercentage } from '../utils/helpers';
-import { FAMILY_COLORS } from '../utils/constants';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function LadderPage() {
   const { currentYear, currentUser } = useApp();
-  const { data: ladder, loading } = useLadder(currentYear);
+  const { data: ladder, loading: ladderLoading } = useLadder(currentYear);
+  const { data: allUsers, loading: usersLoading } = useUsers();
+  
+  const loading = ladderLoading || usersLoading;
 
   if (loading) {
     return <LoadingSpinner text="Loading ladder..." />;
   }
 
-  if (!ladder?.ladder) {
+  // Create complete ladder with all users (including those with no scores)
+  const createCompleteLadder = () => {
+    if (!allUsers) return [];
+    
+    // Create a map of existing ladder entries
+    const ladderMap = new Map();
+    if (ladder?.ladder) {
+      ladder.ladder.forEach(entry => {
+        ladderMap.set(entry.user_id, entry);
+      });
+    }
+    
+    // Create entries for all users
+    const completeLadder = allUsers.map(user => {
+      const existingEntry = ladderMap.get(user.id);
+      
+      if (existingEntry) {
+        return existingEntry;
+      } else {
+        // Create entry for user with no scores
+        return {
+          user_id: user.id,
+          user_name: user.name,
+          family_group_name: user.family_group_name || user.family_group?.name || 'Unknown',
+          total_tips: 0,
+          correct_tips: 0,
+          percentage: 0,
+          rank: ladder?.ladder?.length ? ladder.ladder.length + 1 : 1
+        };
+      }
+    });
+    
+    // Sort by points (correct_tips) descending, then by percentage
+    return completeLadder.sort((a, b) => {
+      if (a.correct_tips !== b.correct_tips) {
+        return b.correct_tips - a.correct_tips;
+      }
+      return b.percentage - a.percentage;
+    }).map((entry, index) => ({
+      ...entry,
+      rank: index + 1
+    }));
+  };
+  
+  const completeLadder = createCompleteLadder();
+  
+  if (!allUsers || allUsers.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow p-6 text-center">
         <div className="text-gray-500">
           <div className="text-4xl mb-4">🏆</div>
-          <h3 className="text-lg font-medium mb-2">No ladder data available</h3>
-          <p>The competition ladder will appear here once games have been played.</p>
+          <h3 className="text-lg font-medium mb-2">No users found</h3>
+          <p>No tipsters have been added to the competition yet.</p>
         </div>
       </div>
     );
   }
 
-  // Group ladder entries by family for color coding
-  const familyGroups = ladder.ladder.reduce((acc, entry) => {
-    const family = entry.family_group_name || 'Unknown';
-    if (!acc[family]) acc[family] = [];
-    acc[family].push(entry);
-    return acc;
-  }, {} as Record<string, typeof ladder.ladder>);
-
-  const familyColorMap: Record<string, string> = {};
-  Object.keys(familyGroups).forEach((family, index) => {
-    familyColorMap[family] = FAMILY_COLORS[index % FAMILY_COLORS.length];
-  });
 
   return (
     <div className="space-y-6">
@@ -45,7 +81,7 @@ export default function LadderPage() {
           {currentYear} Competition Ladder
         </h2>
         <p className="text-gray-600">
-          Current standings for all {ladder.ladder.length} competitors
+          Current standings for all {completeLadder.length} tipsters
         </p>
       </div>
 
@@ -59,9 +95,6 @@ export default function LadderPage() {
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                   Name
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  Family
                 </th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
                   Tips
@@ -78,9 +111,8 @@ export default function LadderPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {ladder.ladder.map((entry) => {
+              {completeLadder.map((entry) => {
                 const isCurrentUser = currentUser?.id === entry.user_id;
-                const familyColor = familyColorMap[entry.family_group_name || 'Unknown'];
                 
                 return (
                   <tr 
@@ -120,12 +152,6 @@ export default function LadderPage() {
                       </div>
                     </td>
                     
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${familyColor}`}>
-                        {entry.family_group_name}
-                      </span>
-                    </td>
-                    
                     <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
                       {entry.total_tips}
                     </td>
@@ -157,42 +183,6 @@ export default function LadderPage() {
         </div>
       </div>
 
-      {/* Family Summary */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Family Performance</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {Object.entries(familyGroups).map(([familyName, members]) => {
-            const familyColor = familyColorMap[familyName];
-            const avgAccuracy = members.reduce((sum, member) => sum + member.percentage, 0) / members.length;
-            const totalPoints = members.reduce((sum, member) => sum + member.correct_tips, 0);
-            const bestRank = Math.min(...members.map(member => member.rank));
-            
-            return (
-              <div key={familyName} className={`rounded-lg p-4 ${familyColor}`}>
-                <h4 className="font-medium text-gray-900 mb-2">{familyName}</h4>
-                <div className="text-sm space-y-1">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Members:</span>
-                    <span className="font-medium">{members.length}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Best rank:</span>
-                    <span className="font-medium">{getRankDisplay(bestRank)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Avg accuracy:</span>
-                    <span className="font-medium">{formatPercentage(avgAccuracy)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Total points:</span>
-                    <span className="font-medium">{totalPoints}</span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
     </div>
   );
 }

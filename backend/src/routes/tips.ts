@@ -370,4 +370,56 @@ router.get('/round/:roundId/winners', async (req, res) => {
   }
 });
 
+/**
+ * PUT /api/tips/:tipId/admin-update
+ * Admin-only endpoint to update any user's tip
+ */
+router.put('/:tipId/admin-update', async (req, res) => {
+  try {
+    await initializeServices();
+    
+    const tipId = parseInt(req.params.tipId);
+    const { admin_user_id, selected_team, predicted_margin } = req.body;
+    
+    if (!admin_user_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required field: admin_user_id'
+      } as ApiResponse);
+    }
+    
+    // Verify admin permissions
+    const adminUser = await userService.getUserById(admin_user_id);
+    if (!adminUser || adminUser.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Admin privileges required'
+      } as ApiResponse);
+    }
+    
+    // Update the tip
+    const success = await tipsService.adminUpdateTip(tipId, selected_team, predicted_margin);
+    
+    if (!success) {
+      return res.status(404).json({
+        success: false,
+        error: 'Tip not found'
+      } as ApiResponse);
+    }
+
+    res.json({
+      success: true,
+      message: 'Tip updated successfully by admin'
+    } as ApiResponse);
+
+  } catch (error) {
+    console.error('Error updating tip (admin):', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update tip',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    } as ApiResponse);
+  }
+});
+
 export default router;

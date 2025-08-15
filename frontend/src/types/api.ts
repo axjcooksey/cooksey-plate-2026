@@ -75,6 +75,9 @@ export interface Tip {
   round_id: number;
   selected_team: string;
   is_correct?: boolean;
+  margin_prediction?: number;
+  is_margin_game?: boolean;
+  margin_difference?: number;
   created_at: string;
   updated_at: string;
   user_name?: string;
@@ -91,6 +94,8 @@ export interface TipSubmission {
   game_id: number;
   squiggle_game_key: string;
   selected_team: string;
+  margin_prediction?: number;
+  is_margin_game?: boolean;
   tip_for_user?: string;
 }
 
@@ -111,4 +116,32 @@ export interface LadderResponse {
   last_updated: string;
   total_rounds: number;
   completed_rounds: number;
+}
+
+export interface FinalsConfig {
+  id: number;
+  round_number: number;
+  round_name: string;
+  requires_margin: boolean;
+  margin_game_position: 'first' | 'last' | 'all';
+  created_at: string;
+}
+
+export interface RoundWinner {
+  id: number;
+  round_id: number;
+  user_id: number;
+  win_type: 'normal' | 'margin' | 'tie';
+  margin_difference?: number;
+  points_awarded: number;
+  created_at: string;
+  user_name?: string;
+}
+
+export interface MarginPredictionRequest {
+  user_id: number;
+  game_id: number;
+  squiggle_game_key: string;
+  selected_team: string;
+  margin_prediction: number;
 }
