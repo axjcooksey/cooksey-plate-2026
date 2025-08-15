@@ -42,6 +42,7 @@
 - **Ready for deployment**: Application fully functional for production use
 
 ### ⏳ **REMAINING WORK**
+- **Enhanced Admin Features**: User management and tip creation capabilities (Step 9.5)
 - **Historical Import**: Excel data import tool (Step 10) 
 - **Deployment**: Production hosting setup (Step 11)
 
@@ -266,6 +267,34 @@ The application now has all core features working smoothly and is ready for live
 ✅ 6. Security-enforced admin-only access controls
 ✅ 7. Complete audit trail for all administrative actions
 ✅ 8. Live job status monitoring and manual triggers
+```
+
+#### **⏳ Step 9.5: Enhanced Admin Management Features (2 hours) - PENDING**
+```javascript
+⏳ // Advanced admin user and tip management:
+⏳ 1. User Edit Functionality Enhancement
+   ⏳ - Enable admins to edit user names and family group assignments
+   ⏳ - Admin role promotion/demotion capabilities
+   ⏳ - Backend validation for user management permissions
+   ⏳ - Frontend user management interface with form validation
+
+⏳ 2. Comprehensive Tip Management System
+   ⏳ - Admin ability to CREATE tips for users who haven't submitted
+   ⏳ - Historical tip creation for any user/round combination
+   ⏳ - Enhanced tip editing to handle both existing and new tips
+   ⏳ - Automatic tip correctness calculation on admin edits
+
+⏳ 3. Auto-Calculation Features
+   ⏳ - Automatic is_correct field updates when tips are created/modified
+   ⏳ - Integration with game results for immediate correctness validation
+   ⏳ - Retroactive correctness updates for historical tip changes
+   ⏳ - Real-time feedback showing correct/incorrect status after edits
+
+⏳ 4. Enhanced UI/UX for Admin Operations
+   ⏳ - Improved "Edit User Tips" interface to handle missing tips
+   ⏳ - "Add Tips" functionality when no existing tips found
+   ⏳ - Clear visual indicators for tip creation vs editing
+   ⏳ - Enhanced user management interface in Admin > Users tab
 ```
 
 #### **⏳ Step 10: Historical Data Import (2 hours) - PENDING**

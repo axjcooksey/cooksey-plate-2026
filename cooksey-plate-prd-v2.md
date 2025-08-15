@@ -66,6 +66,7 @@ A family-focused AFL tipping platform that automates the Excel-based system, pro
 - **API Optimization:** Scheduler frequency optimized for respectful API usage
 
 #### ⏳ REMAINING FOR PRODUCTION
+- Enhanced admin user management and tip creation capabilities
 - Historical Excel data import functionality  
 - Production deployment configuration
 - Database migration to production environment
@@ -353,14 +354,17 @@ const ADMINS = ["Alex", "Phil"];
 3. ✅ Transparent tips display after first game
 4. ✅ Live ladder with automatic calculations
 5. ✅ Squiggle API integration with caching
-6. ✅ Historical data import from Excel
+6. ⏳ Historical data import from Excel
 7. ✅ Admin scheduler interface
+8. ⏳ Admin user management (edit names, roles, family groups)
+9. ⏳ Admin tip creation for users with no existing tips
 
 ### Should Have
-1. Round-by-round history view
-2. Mobile-responsive design
-3. Countdown timer for round lockout
+1. ✅ Round-by-round history view
+2. ✅ Mobile-responsive design
+3. ✅ Countdown timer for round lockout
 4. Basic statistics (win streaks, averages)
+5. ✅ Advanced admin monitoring and control system
 
 ### Nice to Have
 1. Weekly newsletter generation
@@ -804,6 +808,36 @@ tips table updates                        -- Admin edit tracking
 - **Audit Trail**: All admin actions logged with user identification
 - **Data Validation**: All edits validated against game constraints
 - **Permission Verification**: Backend validates admin privileges on every request
+
+### Planned Enhanced Admin Features
+
+#### User Management System
+**Comprehensive User Editing Capabilities**
+- **Name & Family Group Management**: Admins can modify user names and reassign family group memberships
+- **Role Administration**: Promote users to admin status or demote admins to regular users
+- **Permission Controls**: Backend validation ensures only admins can perform user management operations
+- **Audit Trail**: Complete logging of all user management actions with admin identification
+
+#### Advanced Tip Management System
+**Complete Tip Creation & Editing**
+- **Historical Tip Creation**: Admins can create tips for users who never submitted for specific rounds
+- **Comprehensive Editing**: Modify existing tips or create new ones seamlessly in same interface
+- **Retroactive Management**: Full historical tip management for any user/round combination
+- **Automatic Validation**: Ensures tip correctness calculations update immediately after creation/modification
+
+#### Auto-Calculation Integration
+**Intelligent Tip Correctness Updates**
+- **Real-time Calculation**: Automatic `is_correct` field updates when tips are created or modified
+- **Game Result Integration**: Immediate validation against current game results and winners
+- **Retroactive Updates**: Historical tip changes trigger correctness recalculation
+- **Visual Feedback**: Real-time display of correct/incorrect status during admin operations
+
+#### Enhanced Admin Interface
+**Intuitive Management Experience**
+- **Unified Tip Interface**: Single interface handles both tip creation and editing seamlessly
+- **Missing Tip Detection**: Clear indicators when users have no tips for selected rounds
+- **"Add Tips" Functionality**: Prominent option to create tips when none exist
+- **User Management Tab**: Enhanced Admin > Users interface with edit capabilities
 
 ---
 
