@@ -523,6 +523,67 @@ export class TipsService {
       ORDER BY rw.margin_difference ASC
     `, [roundId]);
   }
+
+  /**
+   * Admin-only method to update any user's tip
+   */
+  async adminUpdateTip(tipId: number, selectedTeam?: string, marginPrediction?: number): Promise<boolean> {
+    try {
+      // Get the current tip to validate it exists
+      const existingTip = await this.db.get(`
+        SELECT t.*, g.home_team, g.away_team 
+        FROM tips t
+        LEFT JOIN games g ON t.game_id = g.id
+        WHERE t.id = ?
+      `, [tipId]);
+
+      if (!existingTip) {
+        return false;
+      }
+
+      // Validate selected team if provided
+      if (selectedTeam && selectedTeam !== existingTip.home_team && selectedTeam !== existingTip.away_team) {
+        throw new Error(`Invalid team selection: ${selectedTeam}. Must be ${existingTip.home_team} or ${existingTip.away_team}`);
+      }
+
+      // Build update query dynamically based on provided fields
+      const updateFields = [];
+      const updateValues = [];
+
+      if (selectedTeam) {
+        updateFields.push('selected_team = ?');
+        updateValues.push(selectedTeam);
+      }
+
+      if (marginPrediction !== undefined) {
+        updateFields.push('margin_prediction = ?');
+        updateValues.push(marginPrediction);
+      }
+
+      if (updateFields.length === 0) {
+        // Nothing to update
+        return true;
+      }
+
+      updateFields.push('updated_at = CURRENT_TIMESTAMP');
+      updateValues.push(tipId);
+
+      const updateQuery = `
+        UPDATE tips 
+        SET ${updateFields.join(', ')}
+        WHERE id = ?
+      `;
+
+      await this.db.run(updateQuery, updateValues);
+
+      console.log(`✅ Admin updated tip ${tipId}: ${selectedTeam ? `team=${selectedTeam}` : ''} ${marginPrediction !== undefined ? `margin=${marginPrediction}` : ''}`);
+      return true;
+
+    } catch (error) {
+      console.error('Error in adminUpdateTip:', error);
+      throw error;
+    }
+  }
 }
 
 export default TipsService;

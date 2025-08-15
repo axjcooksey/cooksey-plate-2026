@@ -38,7 +38,7 @@ export function AppProvider({ children }: AppProviderProps) {
 
   // Computed properties
   const isAdmin = currentUser?.role === 'admin';
-  const canTipForOthers = isAdmin || false; // In the future, family members can tip for each other
+  const canTipForOthers = isAdmin || false; // In the future, tipsters can tip for each other
 
   // Fetch current round when user is set
   const refreshCurrentRound = async () => {

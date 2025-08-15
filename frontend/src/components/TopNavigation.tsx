@@ -11,10 +11,9 @@ export default function TopNavigation() {
 
   const navItems = [
     { path: '/', label: 'Home', icon: '🏠' },
-    { path: '/tipping', label: 'Tipping', icon: '📋' },
+    { path: '/tipping', label: 'Enter Tips', icon: '📋' },
     { path: '/ladder', label: 'Ladder', icon: '🏆' },
-    { path: '/history', label: 'All Tips', icon: '📅' },
-    ...(isAdmin ? [{ path: '/admin', label: 'Admin', icon: '⚙️' }] : []),
+    { path: '/history', label: 'View All Tips', icon: '📅' },
   ];
 
   return (
@@ -61,21 +60,17 @@ export default function TopNavigation() {
           <div className="flex items-center space-x-3">
             {currentUser && (
               <>
-                <Link
-                  to="/ladder"
-                  className="hidden sm:inline-flex px-4 py-2 text-sm font-medium text-gray-700 hover:text-lovable-600 transition-colors"
-                >
-                  View Leaderboard
-                </Link>
-                <Link
-                  to="/tipping"
-                  className="inline-flex px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-lovable-500 to-lovable-600 hover:from-lovable-600 hover:to-lovable-700 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
-                >
-                  Start Tipping
-                </Link>
+                {isAdmin && (
+                  <Link
+                    to="/admin"
+                    className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    Admin
+                  </Link>
+                )}
                 <button
                   onClick={handleLogout}
-                  className="text-sm text-gray-500 hover:text-lovable-600 transition-colors ml-2"
+                  className="text-sm text-gray-500 hover:text-lovable-600 transition-colors"
                 >
                   Logout
                 </button>
@@ -125,6 +120,14 @@ export default function TopNavigation() {
                 <div className="text-sm font-medium text-gray-900">{currentUser.name}</div>
                 <div className="text-xs text-afl-600">{currentUser.family_group_name}</div>
               </div>
+              {isAdmin && (
+                <Link
+                  to="/admin"
+                  className="block w-full text-left px-3 py-2 text-sm text-gray-400 hover:text-gray-600"
+                >
+                  Admin
+                </Link>
+              )}
               <button
                 onClick={handleLogout}
                 className="block w-full text-left px-3 py-2 text-sm text-gray-500 hover:text-primary-700"

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { useRounds, useRoundTips, useRoundGames, useUsers } from '../hooks/useApi';
-import { formatDate } from '../utils/helpers';
+import { formatDate, getRoundDisplayName } from '../utils/helpers';
 import LoadingSpinner from '../components/LoadingSpinner';
 import CountdownTimer from '../components/CountdownTimer';
 import { calculateLockoutTime } from '../hooks/useCountdown';
@@ -95,6 +95,9 @@ export default function HistoryPage() {
 
   // Check if the selected round is in lockout period
   const isRoundInLockout = () => {
+    // Admins can always see tips, regardless of lockout
+    if (currentUser?.role === 'admin') return false;
+    
     if (!selectedRound || !roundGames || roundGames.length === 0) return false;
     
     const selectedRoundData = rounds?.find(r => r.id === selectedRound);
@@ -113,6 +116,26 @@ export default function HistoryPage() {
     return now < lockoutTime;
   };
 
+  // Check if a specific user's tips should be visible (for privacy feature)
+  const shouldShowUserTips = (userId: number) => {
+    // Admins can always see all tips
+    if (currentUser?.role === 'admin') return true;
+    
+    // Always show current user's own tips
+    if (userId === currentUser?.id) return true;
+    
+    // If not in lockout, show all tips
+    if (!isRoundInLockout()) return true;
+    
+    // During lockout, only show family group members' tips
+    const user = allUsers?.find(u => u.id === userId);
+    const currentUserFamilyGroup = currentUser?.family_group_id;
+    
+    if (!user || !currentUserFamilyGroup) return false;
+    
+    return user.family_group_id === currentUserFamilyGroup;
+  };
+
   const getLockoutTime = () => {
     if (!roundGames || roundGames.length === 0) return null;
     
@@ -125,16 +148,12 @@ export default function HistoryPage() {
 
   const roundIsLocked = isRoundInLockout();
   const lockoutTime = getLockoutTime();
+  
+  // Check if there are any locked (non-family) users in current view
+  const hasLockedUsers = roundIsLocked && users.some(user => !shouldShowUserTips(user.id));
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">All Tips</h1>
-        <p className="text-gray-600">
-          Bird's-eye view of all family members' tips for any round
-        </p>
-      </div>
 
       {/* Round Selection */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -159,7 +178,7 @@ export default function HistoryPage() {
             <optgroup label="🟢 Completed Rounds">
               {completedRounds.map(round => (
                 <option key={round.id} value={round.id}>
-                  Round {round.round_number}
+                  {getRoundDisplayName(round)}
                 </option>
               ))}
             </optgroup>
@@ -169,7 +188,7 @@ export default function HistoryPage() {
             <optgroup label="🔴 Active Rounds">
               {activeRounds.map(round => (
                 <option key={round.id} value={round.id}>
-                  Round {round.round_number}
+                  {getRoundDisplayName(round)}
                 </option>
               ))}
             </optgroup>
@@ -179,7 +198,7 @@ export default function HistoryPage() {
             <optgroup label="⏳ Upcoming Rounds">
               {upcomingRounds.map(round => (
                 <option key={round.id} value={round.id}>
-                  Round {round.round_number}
+                  {getRoundDisplayName(round)}
                 </option>
               ))}
             </optgroup>
@@ -192,30 +211,60 @@ export default function HistoryPage() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold text-gray-900">
-              Round {rounds?.find(r => r.id === selectedRound)?.round_number} Tips Matrix
+              {rounds?.find(r => r.id === selectedRound) ? getRoundDisplayName(rounds.find(r => r.id === selectedRound)!) : 'Round'} Tips Matrix
             </h2>
             <div className="text-sm text-gray-500">
-              {users.length} family members • {games.length} games
+              {users.length} tipsters • {games.length} games
               {!allTips || allTips.length === 0 ? ' • No tips submitted yet' : ` • ${allTips.length} tips submitted`}
             </div>
           </div>
 
           {/* Lockout Countdown for Upcoming Rounds */}
-          {roundIsLocked && lockoutTime && (
+          {hasLockedUsers && lockoutTime && (
             <div className="mb-6">
               <CountdownTimer 
                 targetDate={lockoutTime} 
-                label={`Tips will be visible 2 hours before the first game starts`}
+                label={`All tips will be visible 2 hours before the first game starts`}
               />
             </div>
           )}
 
-          {games.length > 0 && !roundIsLocked ? (
+          {/* Privacy/Family Info */}
+          {hasLockedUsers && (
+            <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center">
+                <div className="text-blue-600 mr-2">👨‍👩‍👧‍👦</div>
+                <div>
+                  <p className="text-sm font-medium text-blue-800">Family Group Privacy</p>
+                  <p className="text-xs text-blue-700">
+                    You can see your family group's tips now. Other tipsters' selections will be visible 2 hours before the first game.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Admin Override Indicator */}
+          {currentUser?.role === 'admin' && lockoutTime && new Date() < lockoutTime && (
+            <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <div className="flex items-center">
+                <div className="text-amber-600 mr-2">👑</div>
+                <div>
+                  <p className="text-sm font-medium text-amber-800">Admin View</p>
+                  <p className="text-xs text-amber-700">
+                    You're viewing all tips that are normally locked for tipsters until 2 hours before the first game.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {games.length > 0 ? (
             <>
               {(!allTips || allTips.length === 0) && (
                 <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <div className="text-blue-800 text-sm">
-                    <strong>Empty Matrix:</strong> This shows all family members and available games for this round. 
+                    <strong>Empty Matrix:</strong> This shows all tipsters and available games for this round. 
                     Tips will appear here once they're submitted or imported.
                   </div>
                 </div>
@@ -227,7 +276,7 @@ export default function HistoryPage() {
                   {/* Teams Row */}
                   <tr>
                     <th rowSpan={2} className="sticky left-0 z-10 bg-gray-50 border border-gray-300 p-3 text-left font-semibold text-gray-900 min-w-[150px]">
-                      Family Member
+                      Tipster
                     </th>
                     {games.map((game) => (
                       <th key={`teams-${game.id}`} className="border border-gray-300 p-2 bg-gray-50 text-center min-w-[120px]">
@@ -259,40 +308,55 @@ export default function HistoryPage() {
 
                 {/* Body Rows */}
                 <tbody>
-                  {users.map((user) => (
-                    <tr key={user.id} className="hover:bg-gray-50">
-                      <td className="sticky left-0 z-10 bg-white border border-gray-300 p-3 font-medium text-gray-900">
-                        <div>{user.name}</div>
-                        {user.family_group && (
-                          <div className="text-xs text-gray-500 mt-1">{user.family_group}</div>
-                        )}
-                      </td>
-                      {games.map((game) => {
-                        const tip = matrix[user.id]?.[game.id];
-                        return (
-                          <td key={`${user.id}-${game.id}`} className="border border-gray-300 p-1">
-                            {tip ? (
-                              <div className={`
-                                p-2 rounded text-center text-xs font-medium
-                                ${tip.is_correct === true ? 'bg-green-100 text-green-800 border border-green-300' : 
-                                  tip.is_correct === false ? 'bg-red-100 text-red-800 border border-red-300' : 
-                                  'bg-yellow-100 text-yellow-800 border border-yellow-300'}
-                              `}>
-                                <div className="font-semibold">{tip.selected_team}</div>
-                                <div className="mt-1">
-                                  {tip.is_correct === true ? '✓' : tip.is_correct === false ? '✗' : '⏳'}
+                  {users.map((user) => {
+                    const canViewUserTips = shouldShowUserTips(user.id);
+                    const isCurrentUser = user.id === currentUser?.id;
+                    return (
+                      <tr key={user.id} className={`hover:bg-gray-50 ${!canViewUserTips ? 'opacity-60' : ''}`}>
+                        <td className={`sticky left-0 z-10 border border-gray-300 p-3 font-medium ${
+                          !canViewUserTips ? 'bg-gray-100 text-gray-500' : 'bg-white text-gray-900'
+                        }`}>
+                          <div className="flex items-center">
+                            {isCurrentUser && <span className="text-blue-500 mr-1">👤</span>}
+                            {user.name}
+                            {!canViewUserTips && <span className="ml-2 text-gray-400">🔒</span>}
+                          </div>
+                        </td>
+                        {games.map((game) => {
+                          const tip = matrix[user.id]?.[game.id];
+                          return (
+                            <td key={`${user.id}-${game.id}`} className="border border-gray-300 p-1">
+                              {canViewUserTips && tip ? (
+                                <div className={`
+                                  p-2 rounded text-center text-xs font-medium
+                                  ${tip.is_correct === true ? 'bg-green-100 text-green-800 border border-green-300' : 
+                                    tip.is_correct === false ? 'bg-red-100 text-red-800 border border-red-300' : 
+                                    'bg-yellow-100 text-yellow-800 border border-yellow-300'}
+                                `}>
+                                  <div className="font-semibold">{tip.selected_team}</div>
+                                  <div className="mt-1">
+                                    {tip.is_correct === true ? '✓' : tip.is_correct === false ? '✗' : '⏳'}
+                                  </div>
                                 </div>
-                              </div>
-                            ) : (
-                              <div className="p-2 rounded text-center bg-gray-50 border border-gray-200 min-h-[50px] flex items-center justify-center">
-                                <div className="text-gray-300 text-xs">—</div>
-                              </div>
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
+                              ) : !canViewUserTips && tip ? (
+                                <div className="p-2 rounded text-center bg-gray-100 border border-gray-300 min-h-[50px] flex items-center justify-center">
+                                  <div className="text-gray-400 text-xs">🔒</div>
+                                </div>
+                              ) : canViewUserTips && !tip ? (
+                                <div className="p-2 rounded text-center bg-gray-50 border border-gray-200 min-h-[50px] flex items-center justify-center">
+                                  <div className="text-gray-300 text-xs">—</div>
+                                </div>
+                              ) : (
+                                <div className="p-2 rounded text-center bg-gray-100 border border-gray-300 min-h-[50px] flex items-center justify-center">
+                                  <div className="text-gray-400 text-xs">—</div>
+                                </div>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
               </div>
@@ -318,23 +382,16 @@ export default function HistoryPage() {
                       <div className="w-4 h-4 bg-gray-50 border border-gray-200 rounded"></div>
                       <span>No tip submitted</span>
                     </div>
+                    {hasLockedUsers && (
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 bg-gray-100 border border-gray-300 rounded flex items-center justify-center text-gray-400" style={{fontSize: '8px'}}>🔒</div>
+                        <span>Tips hidden until 2 hours before game</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
             </>
-          ) : games.length > 0 && roundIsLocked ? (
-            <div className="text-center py-12">
-              <div className="text-gray-500">
-                <div className="text-6xl mb-4">🔒</div>
-                <h3 className="text-xl font-medium mb-2">Tips Are Locked</h3>
-                <p className="text-lg mb-4">
-                  {games.length} games scheduled for this round
-                </p>
-                <p className="text-sm">
-                  Tips will be visible 2 hours before the first game starts
-                </p>
-              </div>
-            </div>
           ) : (
             <div className="text-center py-8">
               <div className="text-gray-500">
@@ -352,7 +409,7 @@ export default function HistoryPage() {
           <div className="text-gray-500">
             <div className="text-4xl mb-4">👆</div>
             <h3 className="text-lg font-medium mb-2">Select a round above</h3>
-            <p>Choose a round to view the tips matrix for all family members</p>
+            <p>Choose a round to view the tips matrix for all tipsters</p>
           </div>
         </div>
       )}

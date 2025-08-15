@@ -8,7 +8,9 @@ import type {
   Game, 
   Tip, 
   TipSubmission, 
-  LadderResponse 
+  LadderResponse,
+  FinalsConfig,
+  RoundWinner
 } from '../types/api';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
@@ -156,6 +158,32 @@ export class ApiService {
 
   static async getUserStreaks(userId: number, year: number): Promise<ApiResponse<any>> {
     const response = await api.get(`/api/ladder/${year}/user/${userId}/streaks`);
+    return response.data;
+  }
+
+  // Margin Predictions (Finals Rounds)
+  static async getFinalsConfig(roundNumber: number): Promise<ApiResponse<FinalsConfig>> {
+    const response = await api.get(`/api/tips/finals-config/${roundNumber}`);
+    return response.data;
+  }
+
+  static async isMarginGame(gameId: number, roundNumber: number): Promise<ApiResponse<{ is_margin_game: boolean }>> {
+    const response = await api.get(`/api/tips/margin-game/${gameId}/${roundNumber}`);
+    return response.data;
+  }
+
+  static async updateMarginPredictions(gameId: number): Promise<ApiResponse<any>> {
+    const response = await api.post(`/api/tips/game/${gameId}/update-margins`);
+    return response.data;
+  }
+
+  static async calculateMarginRoundWinner(roundId: number): Promise<ApiResponse<any>> {
+    const response = await api.post(`/api/tips/round/${roundId}/calculate-margin-winner`);
+    return response.data;
+  }
+
+  static async getRoundWinners(roundId: number): Promise<ApiResponse<RoundWinner[]>> {
+    const response = await api.get(`/api/tips/round/${roundId}/winners`);
     return response.data;
   }
 

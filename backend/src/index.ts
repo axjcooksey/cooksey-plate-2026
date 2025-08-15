@@ -7,6 +7,14 @@ import familyGroupRoutes from './routes/family-groups';
 import roundRoutes from './routes/rounds';
 import tipRoutes from './routes/tips';
 import ladderRoutes from './routes/ladder';
+import schedulerRoutes from './routes/scheduler';
+import logsRoutes from './routes/logs';
+
+// Import services for scheduler initialization
+import Database from './db/database';
+import SquiggleService from './services/SquiggleService';
+import TipsService from './services/TipsService';
+import SchedulerService from './services/SchedulerService';
 
 dotenv.config();
 
@@ -40,7 +48,9 @@ app.get('/api', (req, res) => {
       familyGroups: '/api/family-groups/*',
       rounds: '/api/rounds/*',
       tips: '/api/tips/*',
-      ladder: '/api/ladder/*'
+      ladder: '/api/ladder/*',
+      scheduler: '/api/scheduler/*',
+      logs: '/api/logs/*'
     },
     timestamp: new Date().toISOString()
   });
@@ -53,6 +63,8 @@ app.use('/api/family-groups', familyGroupRoutes);
 app.use('/api/rounds', roundRoutes);
 app.use('/api/tips', tipRoutes);
 app.use('/api/ladder', ladderRoutes);
+app.use('/api/scheduler', schedulerRoutes);
+app.use('/api/logs', logsRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -73,8 +85,65 @@ app.use((error: any, req: express.Request, res: express.Response, next: express.
   });
 });
 
-app.listen(PORT, () => {
+// Initialize scheduler
+let scheduler: SchedulerService;
+
+const initializeScheduler = async () => {
+  try {
+    console.log('📅 Initializing scheduler...');
+    
+    // Initialize database and services
+    const db = new Database();
+    await db.connect();
+    
+    const squiggleService = new SquiggleService(db);
+    const tipsService = new TipsService(db);
+    
+    // Create and start scheduler
+    scheduler = new SchedulerService(db, squiggleService, tipsService);
+    await scheduler.start();
+    
+    // Make scheduler available globally for routes
+    (global as any).schedulerService = scheduler;
+    
+  } catch (error) {
+    console.error('❌ Failed to initialize scheduler:', error);
+    console.log('⚠️  Server will continue without scheduler');
+  }
+};
+
+const server = app.listen(PORT, async () => {
   console.log(`🚀 Cooksey Plate backend running on port ${PORT}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
   console.log(`📡 API endpoints available at http://localhost:${PORT}/api/`);
+  
+  // Initialize scheduler after server starts
+  await initializeScheduler();
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('📡 SIGTERM received, shutting down gracefully...');
+  
+  if (scheduler) {
+    scheduler.stop();
+  }
+  
+  server.close(() => {
+    console.log('✅ Server closed');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('📡 SIGINT received, shutting down gracefully...');
+  
+  if (scheduler) {
+    scheduler.stop();
+  }
+  
+  server.close(() => {
+    console.log('✅ Server closed');
+    process.exit(0);
+  });
 });

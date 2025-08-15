@@ -86,6 +86,44 @@ export const getTipDisplayText = (tip: Tip): string => {
 };
 
 // Round utilities
+export const getFinalsRoundName = (roundNumber: number): string | null => {
+  switch (roundNumber) {
+    case 25: return 'Finals Week 1';
+    case 26: return 'Semi Finals';
+    case 27: return 'Preliminary Finals';
+    case 28: return 'Grand Final';
+    default: return null;
+  }
+};
+
+export const getRoundDisplayName = (round: Round): string => {
+  const finalsName = getFinalsRoundName(round.round_number);
+  return finalsName || `Round ${round.round_number}`;
+};
+
+export const isFinalsRound = (roundNumber: number): boolean => {
+  return roundNumber >= 25 && roundNumber <= 28;
+};
+
+export const getLastGameOfRound = (games: Game[]): Game | null => {
+  if (!games || games.length === 0) return null;
+  
+  // Sort games by start time and return the last one
+  const sortedGames = [...games].sort((a, b) => 
+    new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+  );
+  
+  return sortedGames[sortedGames.length - 1];
+};
+
+export const isMarginGame = (game: Game, games: Game[], roundNumber: number): boolean => {
+  if (!isFinalsRound(roundNumber)) return false;
+  
+  // Get the last game of the round (sorted by start time)
+  const lastGame = getLastGameOfRound(games);
+  return lastGame ? lastGame.id === game.id : false;
+};
+
 export const isRoundLocked = (round: Round): boolean => {
   if (!round.lockout_time) return false;
   return isAfter(new Date(), parseISO(round.lockout_time));
@@ -210,6 +248,33 @@ export const loadFromLocalStorage = <T>(key: string, defaultValue: T): T => {
     console.warn('Failed to load from localStorage:', error);
     return defaultValue;
   }
+};
+
+// Margin prediction utilities
+export const validateMarginPrediction = (margin: number | null): { isValid: boolean; error?: string } => {
+  if (margin === null || margin === undefined) {
+    return { isValid: false, error: 'Margin prediction is required for this game' };
+  }
+  
+  if (isNaN(margin) || margin < 0) {
+    return { isValid: false, error: 'Margin must be a positive number' };
+  }
+  
+  if (margin > 200) {
+    return { isValid: false, error: 'Margin seems too high (max 200 points)' };
+  }
+  
+  return { isValid: true };
+};
+
+export const formatMarginPrediction = (margin: number | null): string => {
+  if (margin === null || margin === undefined) return 'No prediction';
+  return `${margin} points`;
+};
+
+export const getMarginPredictionLabel = (roundNumber: number): string => {
+  const roundName = getFinalsRoundName(roundNumber);
+  return roundName ? `${roundName} Margin` : 'Margin Prediction';
 };
 
 // Error handling utilities

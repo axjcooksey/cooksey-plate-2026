@@ -9,16 +9,25 @@ export interface ApiState<T> {
 }
 
 export function useApi<T>(
-  apiCall: () => Promise<ApiResponse<T>>,
+  apiCall: (() => Promise<ApiResponse<T>>) | null,
   dependencies: any[] = []
 ) {
   const [state, setState] = useState<ApiState<T>>({
     data: null,
-    loading: true,
+    loading: !apiCall ? false : true,
     error: null,
   });
 
   const refetch = async () => {
+    if (!apiCall) {
+      setState({
+        data: null,
+        loading: false,
+        error: null,
+      });
+      return;
+    }
+    
     setState(prev => ({ ...prev, loading: true, error: null }));
     
     try {
@@ -89,14 +98,14 @@ export function useRounds(year: number) {
 
 export function useRoundGames(roundId: number | null) {
   return useApi(
-    () => ApiService.getRoundGames(roundId!),
+    roundId ? () => ApiService.getRoundGames(roundId) : null,
     [roundId]
   );
 }
 
 export function useUserRoundTips(userId: number | null, roundId: number | null) {
   return useApi(
-    () => ApiService.getUserRoundTips(userId!, roundId!),
+    (userId && roundId) ? () => ApiService.getUserRoundTips(userId, roundId) : null,
     [userId, roundId]
   );
 }
@@ -116,5 +125,33 @@ export function useUserStats(userId: number | null, year: number) {
   return useApi(
     () => ApiService.getUserStats(userId!, year),
     [userId, year]
+  );
+}
+
+export function useFinalsConfig(roundNumber: number | null) {
+  return useApi(
+    () => ApiService.getFinalsConfig(roundNumber!),
+    [roundNumber]
+  );
+}
+
+export function useIsMarginGame(gameId: number | null, roundNumber: number | null) {
+  return useApi(
+    () => ApiService.isMarginGame(gameId!, roundNumber!),
+    [gameId, roundNumber]
+  );
+}
+
+export function useRoundWinners(roundId: number | null) {
+  return useApi(
+    () => ApiService.getRoundWinners(roundId!),
+    [roundId]
+  );
+}
+
+export function useUsersCanTipFor(userId: number | null) {
+  return useApi(
+    () => ApiService.getUsersCanTipFor(userId!),
+    [userId]
   );
 }

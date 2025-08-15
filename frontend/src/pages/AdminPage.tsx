@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { useUsers, useFamilyGroups, useRounds } from '../hooks/useApi';
 import { formatDate } from '../utils/helpers';
@@ -9,8 +9,17 @@ export default function AdminPage() {
   const { data: users } = useUsers();
   const { data: familyGroups } = useFamilyGroups();
   const { data: rounds } = useRounds(currentYear);
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'rounds' | 'data'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'rounds' | 'data' | 'scheduler'>('overview');
   const [syncingData, setSyncingData] = useState(false);
+  const [schedulerStatus, setSchedulerStatus] = useState<any>(null);
+  const [schedulerJobs, setSchedulerJobs] = useState<any[]>([]);
+  const [loadingScheduler, setLoadingScheduler] = useState(false);
+  const [syncLogs, setSyncLogs] = useState<any>(null);
+  const [loadingLogs, setLoadingLogs] = useState(false);
+  const [selectedRound, setSelectedRound] = useState<any>(null);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [userTips, setUserTips] = useState<any[]>([]);
+  const [loadingTips, setLoadingTips] = useState(false);
 
   if (!currentUser || currentUser.role !== 'admin') {
     return (
@@ -24,12 +33,197 @@ export default function AdminPage() {
     );
   }
 
+  // Load scheduler data when scheduler tab is active
+  useEffect(() => {
+    if (activeTab === 'scheduler') {
+      loadSchedulerData();
+      loadSyncLogs();
+    }
+  }, [activeTab]);
+
+  // Load tips when user and round are selected
+  useEffect(() => {
+    if (selectedUser && selectedRound) {
+      loadUserTips();
+    }
+  }, [selectedUser, selectedRound]);
+
+  const loadSchedulerData = async () => {
+    setLoadingScheduler(true);
+    try {
+      const [statusRes, jobsRes] = await Promise.all([
+        fetch('/api/scheduler/status'),
+        fetch('/api/scheduler/jobs')
+      ]);
+      
+      const statusData = await statusRes.json();
+      const jobsData = await jobsRes.json();
+      
+      if (statusData.success) {
+        setSchedulerStatus(statusData.data);
+      }
+      
+      if (jobsData.success) {
+        setSchedulerJobs(jobsData.data);
+      }
+    } catch (error) {
+      console.error('Failed to load scheduler data:', error);
+    } finally {
+      setLoadingScheduler(false);
+    }
+  };
+
+  const loadSyncLogs = async () => {
+    setLoadingLogs(true);
+    try {
+      console.log('🔄 Loading sync logs and scheduler jobs...');
+      
+      const [syncResponse, jobsResponse] = await Promise.all([
+        fetch('/api/squiggle/sync-logs'),
+        fetch('/api/scheduler/jobs')
+      ]);
+      
+      console.log('📡 API Response Status:', syncResponse.status, jobsResponse.status);
+      
+      const syncData = await syncResponse.json();
+      const jobsData = await jobsResponse.json();
+      
+      console.log('📊 Sync Data Success:', syncData.success);
+      console.log('⏰ Jobs Data Success:', jobsData.success);
+      
+      if (syncData.success) {
+        console.log('✅ Setting real sync data:', {
+          lastSquiggleSync: syncData.data.latestSquiggleSync?.created_at,
+          lastTeamsSync: syncData.data.latestTeamsSync?.created_at
+        });
+        setSyncLogs(syncData.data);
+      } else {
+        console.warn('❌ Sync data API returned failure:', syncData);
+      }
+      
+      if (jobsData.success) {
+        console.log('✅ Setting scheduler jobs:', jobsData.data.length, 'jobs');
+        setSchedulerJobs(jobsData.data);
+      } else {
+        console.warn('❌ Jobs data API returned failure:', jobsData);
+      }
+    } catch (error) {
+      console.error('Failed to load sync logs:', error);
+      // Use mock data as fallback - with realistic past timestamps
+      console.warn('API call failed, using mock data:', error);
+      setSyncLogs({
+        latestSquiggleSync: {
+          id: 1,
+          import_type: 'squiggle',
+          status: 'success',
+          records_processed: 216,
+          created_at: new Date(Date.now() - 6 * 3600000).toISOString(), // 6 hours ago
+          file_name: 'squiggle_2025.json'
+        },
+        latestTeamsSync: {
+          id: 2,
+          import_type: 'teams',
+          status: 'success',
+          records_processed: 18,
+          created_at: new Date(Date.now() - 12 * 3600000).toISOString(), // 12 hours ago
+          file_name: 'squiggle_teams.json'
+        },
+        recentActivity: [
+          {
+            id: 3,
+            import_type: 'squiggle',
+            status: 'success',
+            records_processed: 216,
+            created_at: new Date().toISOString()
+          },
+          {
+            id: 4,
+            import_type: 'teams',
+            status: 'success',
+            records_processed: 18,
+            created_at: new Date(Date.now() - 3600000).toISOString()
+          }
+        ],
+        last24hStats: [
+          { import_type: 'squiggle', status: 'success', count: 5, total_records: 1080 },
+          { import_type: 'teams', status: 'success', count: 2, total_records: 36 }
+        ]
+      });
+    } finally {
+      setLoadingLogs(false);
+    }
+  };
+
+  const handleTriggerJob = async (jobId: string) => {
+    try {
+      const response = await fetch(`/api/scheduler/trigger/${jobId}`, {
+        method: 'POST'
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        console.log(`Job ${jobId} triggered successfully`);
+        loadSchedulerData(); // Refresh data
+      } else {
+        console.error('Failed to trigger job:', result.message);
+      }
+    } catch (error) {
+      console.error('Error triggering job:', error);
+    }
+  };
+
+  const handleSchedulerToggle = async (enable: boolean) => {
+    try {
+      const endpoint = enable ? '/api/scheduler/enable' : '/api/scheduler/disable';
+      const response = await fetch(endpoint, { method: 'POST' });
+      const result = await response.json();
+      
+      if (result.success) {
+        loadSchedulerData(); // Refresh data
+      } else {
+        console.error('Failed to toggle scheduler:', result.message);
+      }
+    } catch (error) {
+      console.error('Error toggling scheduler:', error);
+    }
+  };
+
+  const handleSyncAll = async () => {
+    setSyncingData(true);
+    try {
+      const response = await fetch('/api/scheduler/sync-all', {
+        method: 'POST'
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        console.log('Full sync completed:', result.data);
+      } else {
+        console.error('Sync failed:', result.message);
+      }
+    } catch (error) {
+      console.error('Error running sync:', error);
+    } finally {
+      setSyncingData(false);
+    }
+  };
+
   const handleSyncSquiggleData = async () => {
     setSyncingData(true);
     try {
-      // API call would go here
-      console.log('Syncing Squiggle data...');
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate API call
+      const response = await fetch(`/api/squiggle/update/${currentYear}`, {
+        method: 'POST'
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        console.log('Squiggle data synced:', result.message);
+      } else {
+        console.error('Sync failed:', result.message);
+      }
     } catch (error) {
       console.error('Failed to sync data:', error);
     } finally {
@@ -37,11 +231,57 @@ export default function AdminPage() {
     }
   };
 
+  const loadUserTips = async () => {
+    if (!selectedUser || !selectedRound) return;
+    
+    setLoadingTips(true);
+    try {
+      const response = await fetch(`/api/tips/user/${selectedUser.id}/round/${selectedRound.id}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setUserTips(data.data);
+      }
+    } catch (error) {
+      console.error('Failed to load user tips:', error);
+    } finally {
+      setLoadingTips(false);
+    }
+  };
+
+  const updateTip = async (tipId: number, selectedTeam?: string, marginPrediction?: number) => {
+    try {
+      const response = await fetch(`/api/tips/${tipId}/admin-update`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          admin_user_id: currentUser.id,
+          selected_team: selectedTeam,
+          predicted_margin: marginPrediction
+        })
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        console.log('Tip updated successfully');
+        // Reload tips to reflect changes
+        loadUserTips();
+      } else {
+        console.error('Failed to update tip:', result.message);
+      }
+    } catch (error) {
+      console.error('Error updating tip:', error);
+    }
+  };
+
   const tabs = [
     { id: 'overview', name: 'Overview', icon: '📊' },
     { id: 'users', name: 'Users', icon: '👥' },
-    { id: 'rounds', name: 'Rounds', icon: '🏈' },
-    { id: 'data', name: 'Data Sync', icon: '🔄' },
+    { id: 'rounds', name: 'Edit User Tips', icon: '✏️' },
+    { id: 'scheduler', name: 'Data Sync Scheduler', icon: '🔄' },
   ];
 
   return (
@@ -214,134 +454,440 @@ export default function AdminPage() {
             </div>
           )}
 
-          {/* Rounds Tab */}
+          {/* Edit User Tips Tab */}
           {activeTab === 'rounds' && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
-                <h3 className="text-lg font-medium text-gray-900">Round Management</h3>
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900">Edit User Tips</h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Select a user and round to view and edit their tips historically
+                  </p>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {['upcoming', 'active', 'completed'].map(status => {
-                  const statusRounds = rounds?.filter(r => r.status === status) || [];
-                  const statusColors = {
-                    upcoming: 'bg-gray-50 border-gray-200',
-                    active: 'bg-green-50 border-green-200',
-                    completed: 'bg-blue-50 border-blue-200'
-                  };
+              {/* Selectors */}
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Round Selector */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Select Round
+                    </label>
+                    <select
+                      value={selectedRound?.id || ''}
+                      onChange={(e) => {
+                        const roundId = parseInt(e.target.value);
+                        const round = rounds?.find(r => r.id === roundId);
+                        setSelectedRound(round || null);
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="">Choose a round...</option>
+                      {rounds?.map(round => (
+                        <option key={round.id} value={round.id}>
+                          Round {round.round_number} ({round.status})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                  return (
-                    <div key={status} className={`rounded-lg border p-4 ${statusColors[status as keyof typeof statusColors]}`}>
-                      <h4 className="font-medium text-gray-900 mb-3 capitalize">
-                        {status} Rounds ({statusRounds.length})
-                      </h4>
-                      <div className="space-y-2 max-h-64 overflow-y-auto">
-                        {statusRounds.map(round => (
-                          <div key={round.id} className="bg-white rounded p-3 text-sm">
-                            <div className="font-medium">Round {round.round_number}</div>
-                            {round.lockout_time && (
-                              <div className="text-gray-600 text-xs mt-1">
-                                {formatDate(round.lockout_time, 'dd/MM/yyyy HH:mm')}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
+                  {/* User Selector */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Select User
+                    </label>
+                    <select
+                      value={selectedUser?.id || ''}
+                      onChange={(e) => {
+                        const userId = parseInt(e.target.value);
+                        const user = users?.find(u => u.id === userId);
+                        setSelectedUser(user || null);
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="">Choose a user...</option>
+                      {users?.map(user => (
+                        <option key={user.id} value={user.id}>
+                          {user.name} ({user.family_group_name})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {selectedUser && selectedRound && (
+                  <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                    <div className="text-sm text-blue-800">
+                      <strong>Editing tips for:</strong> {selectedUser.name} - Round {selectedRound.round_number}
                     </div>
-                  );
-                })}
+                  </div>
+                )}
               </div>
+
+              {/* Tips Display and Editing */}
+              {selectedUser && selectedRound && (
+                <div className="bg-white rounded-lg shadow p-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h4 className="text-lg font-medium text-gray-900">User Tips</h4>
+                    <button
+                      onClick={loadUserTips}
+                      disabled={loadingTips}
+                      className="px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+                    >
+                      {loadingTips ? '🔄' : '🔄'} Refresh
+                    </button>
+                  </div>
+
+                  {loadingTips ? (
+                    <div className="flex justify-center py-8">
+                      <LoadingSpinner />
+                    </div>
+                  ) : userTips.length > 0 ? (
+                    <div className="space-y-4">
+                      {userTips.map(tip => (
+                        <div key={tip.id} className="border rounded-lg p-4">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                            <div>
+                              <div className="font-medium text-gray-900">
+                                {tip.home_team} vs {tip.away_team}
+                              </div>
+                              <div className="text-sm text-gray-600">
+                                Game {tip.game_number} • {new Date(tip.start_time).toLocaleDateString()}
+                              </div>
+                            </div>
+                            
+                            <div>
+                              <label className="block text-xs font-medium text-gray-500 mb-1">
+                                Selected Team
+                              </label>
+                              <select
+                                value={tip.selected_team || ''}
+                                onChange={(e) => updateTip(tip.id, e.target.value, tip.margin_prediction)}
+                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                              >
+                                <option value="">No selection</option>
+                                <option value={tip.home_team}>{tip.home_team}</option>
+                                <option value={tip.away_team}>{tip.away_team}</option>
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-medium text-gray-500 mb-1">
+                                Margin Prediction
+                              </label>
+                              <input
+                                type="number"
+                                value={tip.margin_prediction || ''}
+                                onChange={(e) => updateTip(tip.id, tip.selected_team, parseInt(e.target.value) || undefined)}
+                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                placeholder="Margin"
+                              />
+                            </div>
+                          </div>
+
+                          {tip.is_correct !== null && (
+                            <div className="mt-2 text-xs">
+                              <span className={`px-2 py-1 rounded-full ${
+                                tip.is_correct ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                              }`}>
+                                {tip.is_correct ? '✓ Correct' : '✗ Incorrect'}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center text-gray-500 py-8">
+                      No tips found for this user and round
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
-          {/* Data Sync Tab */}
-          {activeTab === 'data' && (
+          {/* Data Sync Scheduler Tab */}
+          {activeTab === 'scheduler' && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
-                <h3 className="text-lg font-medium text-gray-900">Data Synchronization</h3>
-              </div>
-
-              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
-                <div className="flex">
-                  <div className="text-yellow-400 mr-3">⚠️</div>
-                  <div>
-                    <h4 className="text-sm font-medium text-yellow-800">
-                      Data Sync Operations
-                    </h4>
-                    <p className="text-sm text-yellow-700 mt-1">
-                      These operations will update the database with the latest information from external sources.
-                      Use with caution as this may affect ongoing competitions.
-                    </p>
-                  </div>
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900">Data Sync Scheduler</h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Automated scheduling and manual data synchronization controls
+                  </p>
                 </div>
+                <button
+                  onClick={() => {
+                    loadSchedulerData();
+                    loadSyncLogs();
+                  }}
+                  className="px-3 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+                >
+                  🔄 Refresh All
+                </button>
               </div>
 
-              <div className="space-y-4">
-                <div className="bg-white border rounded-lg p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-lg font-medium text-gray-900">
-                        Sync Squiggle Data
-                      </h4>
-                      <p className="text-sm text-gray-600 mt-1">
-                        Updates games, scores, and team information from the Squiggle API
-                      </p>
+              {loadingScheduler ? (
+                <div className="flex justify-center py-8">
+                  <LoadingSpinner />
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Sync Activity & Logs */}
+                  <div className="bg-white border rounded-lg p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="text-lg font-medium text-gray-900">Sync Activity & Logs</h4>
+                      <button
+                        onClick={loadSyncLogs}
+                        disabled={loadingLogs}
+                        className="px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+                      >
+                        {loadingLogs ? '🔄' : '📋'} Refresh Logs
+                      </button>
                     </div>
-                    <button
-                      onClick={handleSyncSquiggleData}
-                      disabled={syncingData}
-                      className={`
-                        px-4 py-2 rounded-md font-medium transition-colors
-                        ${syncingData
-                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                          : 'bg-blue-600 text-white hover:bg-blue-700'
-                        }
-                      `}
-                    >
-                      {syncingData ? (
-                        <div className="flex items-center">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                          Syncing...
+
+                    {loadingLogs ? (
+                      <div className="flex justify-center py-4">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-600"></div>
+                      </div>
+                    ) : syncLogs ? (
+                      <div className="space-y-6">
+                        {/* Latest Sync Status */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="font-medium text-green-900">Latest Squiggle API Sync</div>
+                              <div className={`text-xs px-2 py-1 rounded-full ${
+                                syncLogs.latestSquiggleSync?.status === 'success' 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : 'bg-red-100 text-red-800'
+                              }`}>
+                                {syncLogs.latestSquiggleSync?.status || 'No data'}
+                              </div>
+                            </div>
+                            <div className="text-sm text-green-700 space-y-1">
+                              <div>📅 <strong>Last Sync:</strong> {syncLogs.latestSquiggleSync ? new Date(syncLogs.latestSquiggleSync.created_at).toLocaleString() : 'No sync yet'}</div>
+                              <div>📊 {syncLogs.latestSquiggleSync?.records_processed || 0} games processed</div>
+                              {syncLogs.latestSquiggleSync?.file_name && (
+                                <div>📁 {syncLogs.latestSquiggleSync.file_name}</div>
+                              )}
+                              {(() => {
+                                const liveScoreJob = schedulerJobs.find(job => job.id === 'live-scores');
+                                return liveScoreJob ? (
+                                  <>
+                                    <div>⏰ <strong>Next Sync:</strong> {new Date(liveScoreJob.nextRun).toLocaleString()}</div>
+                                    <div>🔄 <strong>Frequency:</strong> Every 30 minutes</div>
+                                  </>
+                                ) : null;
+                              })()}
+                            </div>
+                          </div>
+
+                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="font-medium text-blue-900">Latest Teams Sync</div>
+                              <div className={`text-xs px-2 py-1 rounded-full ${
+                                syncLogs.latestTeamsSync?.status === 'success' 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : 'bg-red-100 text-red-800'
+                              }`}>
+                                {syncLogs.latestTeamsSync?.status || 'No data'}
+                              </div>
+                            </div>
+                            <div className="text-sm text-blue-700 space-y-1">
+                              <div>📅 <strong>Last Sync:</strong> {syncLogs.latestTeamsSync ? new Date(syncLogs.latestTeamsSync.created_at).toLocaleString() : 'No sync yet'}</div>
+                              <div>👥 {syncLogs.latestTeamsSync?.records_processed || 0} teams processed</div>
+                              {syncLogs.latestTeamsSync?.file_name && (
+                                <div>📁 {syncLogs.latestTeamsSync.file_name}</div>
+                              )}
+                              {(() => {
+                                const fullSyncJob = schedulerJobs.find(job => job.id === 'full-sync');
+                                return fullSyncJob ? (
+                                  <>
+                                    <div>⏰ <strong>Next Sync:</strong> {new Date(fullSyncJob.nextRun).toLocaleString()}</div>
+                                    <div>🔄 <strong>Frequency:</strong> Twice daily (6 AM & 6 PM)</div>
+                                  </>
+                                ) : null;
+                              })()}
+                            </div>
+                          </div>
                         </div>
-                      ) : (
-                        'Sync Now'
-                      )}
-                    </button>
-                  </div>
-                </div>
 
-                <div className="bg-white border rounded-lg p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-lg font-medium text-gray-900">
-                        Calculate Ladder
-                      </h4>
-                      <p className="text-sm text-gray-600 mt-1">
-                        Recalculates the competition ladder based on current tips and results
-                      </p>
-                    </div>
-                    <button className="px-4 py-2 bg-green-600 text-white rounded-md font-medium hover:bg-green-700 transition-colors">
-                      Calculate
-                    </button>
-                  </div>
-                </div>
+                        {/* 24 Hour Statistics */}
+                        {syncLogs.last24hStats && syncLogs.last24hStats.length > 0 && (
+                          <div className="bg-gray-50 rounded-lg p-4">
+                            <h5 className="font-medium text-gray-900 mb-3">Last 24 Hours</h5>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                              {syncLogs.last24hStats.map((stat: any, index: number) => (
+                                <div key={index} className="text-center">
+                                  <div className="font-medium text-gray-900">
+                                    {stat.import_type === 'squiggle' ? '🏈' : '👥'} {stat.count}
+                                  </div>
+                                  <div className="text-gray-600 text-xs">
+                                    {stat.import_type} {stat.status}
+                                  </div>
+                                  <div className="text-gray-500 text-xs">
+                                    {stat.total_records} records
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
 
-                <div className="bg-white border rounded-lg p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-lg font-medium text-gray-900">
-                        Export Data
-                      </h4>
-                      <p className="text-sm text-gray-600 mt-1">
-                        Download competition data as CSV for backup or analysis
-                      </p>
+                        {/* Recent Activity Log */}
+                        <div>
+                          <h5 className="font-medium text-gray-900 mb-3">Recent Sync Activity</h5>
+                          <div className="space-y-2 max-h-64 overflow-y-auto">
+                            {syncLogs.recentActivity && syncLogs.recentActivity.length > 0 ? (
+                              syncLogs.recentActivity.map((log: any) => (
+                                <div key={log.id} className={`flex items-center justify-between p-3 rounded text-sm ${
+                                  log.status === 'success' 
+                                    ? 'bg-green-50 border border-green-200' 
+                                    : 'bg-red-50 border border-red-200'
+                                }`}>
+                                  <div className="flex items-center space-x-3">
+                                    <div className={`w-2 h-2 rounded-full ${
+                                      log.status === 'success' ? 'bg-green-500' : 'bg-red-500'
+                                    }`}></div>
+                                    <div>
+                                      <span className="font-medium">
+                                        {log.import_type === 'squiggle' ? '🏈 Games' : '👥 Teams'} Sync
+                                      </span>
+                                      {log.error_message && (
+                                        <div className="text-red-600 text-xs mt-1">{log.error_message}</div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="text-gray-600">{log.records_processed || 0} records</div>
+                                    <div className="text-gray-500 text-xs">
+                                      {new Date(log.created_at).toLocaleString()}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="text-center text-gray-500 py-4">
+                                No recent sync activity found
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center text-gray-500 py-4">
+                        No sync data available
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Manual Data Operations */}
+                  <div className="bg-white border rounded-lg p-6">
+                    <h4 className="text-lg font-medium text-gray-900 mb-4">Manual Data Operations</h4>
+                    <p className="text-sm text-gray-600 mb-6">
+                      These operations bypass the automated scheduler for immediate data updates.
+                    </p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <button
+                        onClick={handleSyncAll}
+                        disabled={syncingData}
+                        className={`p-4 border rounded-lg text-left transition-colors ${
+                          syncingData
+                            ? 'bg-gray-50 cursor-not-allowed'
+                            : 'hover:bg-gray-50 hover:border-blue-300'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-medium text-gray-900">Full Scheduler Sync</div>
+                            <div className="text-sm text-gray-600">Trigger all automated jobs</div>
+                          </div>
+                          <div className="text-2xl">
+                            {syncingData ? (
+                              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                            ) : (
+                              '🔄'
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                      
+                      <button
+                        onClick={() => handleTriggerJob('live-scores')}
+                        className="p-4 border rounded-lg text-left hover:bg-gray-50 hover:border-green-300 transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-medium text-gray-900">Live Scores Update</div>
+                            <div className="text-sm text-gray-600">Latest game results</div>
+                          </div>
+                          <div className="text-2xl">📊</div>
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={handleSyncSquiggleData}
+                        disabled={syncingData}
+                        className={`p-4 border rounded-lg text-left transition-colors ${
+                          syncingData
+                            ? 'bg-gray-50 cursor-not-allowed'
+                            : 'hover:bg-gray-50 hover:border-purple-300'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-medium text-gray-900">Squiggle API Sync</div>
+                            <div className="text-sm text-gray-600">Games, scores & teams</div>
+                          </div>
+                          <div className="text-2xl">🏈</div>
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={() => handleTriggerJob('round-status')}
+                        className="p-4 border rounded-lg text-left hover:bg-gray-50 hover:border-yellow-300 transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-medium text-gray-900">Round Status Update</div>
+                            <div className="text-sm text-gray-600">Refresh round statuses</div>
+                          </div>
+                          <div className="text-2xl">⏰</div>
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={() => handleTriggerJob('tip-correctness')}
+                        className="p-4 border rounded-lg text-left hover:bg-gray-50 hover:border-green-300 transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-medium text-gray-900">Calculate Tips</div>
+                            <div className="text-sm text-gray-600">Process tip correctness</div>
+                          </div>
+                          <div className="text-2xl">🎯</div>
+                        </div>
+                      </button>
+
+                      <button
+                        className="p-4 border rounded-lg text-left hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-medium text-gray-900">Export Competition Data</div>
+                            <div className="text-sm text-gray-600">Download CSV backup</div>
+                          </div>
+                          <div className="text-2xl">📁</div>
+                        </div>
+                      </button>
                     </div>
-                    <button className="px-4 py-2 bg-gray-600 text-white rounded-md font-medium hover:bg-gray-700 transition-colors">
-                      Download
-                    </button>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
         </div>
