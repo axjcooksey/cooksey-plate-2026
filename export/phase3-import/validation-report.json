@@ -1,0 +1,50 @@
+{
+  "metadata": {
+    "validatedAt": "2025-08-20T12:03:25.129Z",
+    "phase": "Phase 3.4 - Data Validation & Integrity Checks",
+    "totalRecords": 4684,
+    "databaseConnected": true,
+    "tableExists": true
+  },
+  "validation": {
+    "users": {
+      "totalImportUsers": 24,
+      "totalDbUsers": 24,
+      "validUsers": 24,
+      "missingUsers": 0,
+      "missingUsersList": [],
+      "userValidationPassed": true
+    },
+    "gameKeys": {
+      "totalImportKeys": 196,
+      "validKeys": 196,
+      "missingKeys": 0,
+      "missingKeysList": [],
+      "gameKeyValidationPassed": true
+    },
+    "duplicates": {
+      "existingHistoricalTips": 0,
+      "potentialDuplicates": 0,
+      "duplicateValidationPassed": true,
+      "sampleDuplicates": []
+    },
+    "dataIntegrity": {
+      "nullValues": 0,
+      "invalidRoundNumbers": 0,
+      "invalidGameNumbers": 0,
+      "invalidSquiggleKeys": 0,
+      "invalidTeamNames": 0,
+      "invalidYears": 0,
+      "invalidCorrectness": 0,
+      "totalIssues": 0,
+      "integrityValidationPassed": true
+    }
+  },
+  "recommendations": [],
+  "importReadiness": {
+    "allValidationsPassed": true,
+    "canProceedWithImport": true,
+    "requiresUserAction": false,
+    "blockingIssues": []
+  }
+}
