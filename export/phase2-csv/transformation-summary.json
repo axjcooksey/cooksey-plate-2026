@@ -1,0 +1,13 @@
+{
+  "totalRecords": 4684,
+  "rounds": 24,
+  "outputFile": "../export/phase2-csv/tips-flat.csv",
+  "csvHeader": "user_name,week_number,game_number,squiggle_game_key,home_team,away_team,winning_team,selected_team,is_correct,source_tab",
+  "sampleSquiggleKeys": {
+    "Round 0 Game 1": "001",
+    "Round 12 Game 6": "126",
+    "Round 23 Game 9": "239"
+  },
+  "transformedAt": "2025-08-20T11:46:06.176Z",
+  "sampleRecord": "Pop,0,1,001,Sydney,Hawthorn,Hawthorn,Hawthorn,1,Round 0"
+}

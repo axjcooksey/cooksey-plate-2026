@@ -201,16 +201,34 @@ router.post('/', async (req, res) => {
 
 /**
  * PUT /api/users/:id
- * Update user
+ * Update user (Admin only)
  */
 router.put('/:id', async (req, res) => {
   try {
     await initializeServices();
     
     const userId = parseInt(req.params.id);
-    const updates = req.body;
+    const { admin_user_id, ...updates } = req.body;
+    
+    if (!admin_user_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required field: admin_user_id'
+      } as ApiResponse);
+    }
+    
+    // Verify admin permissions
+    const adminUser = await userService.getUserById(admin_user_id);
+    if (!adminUser || adminUser.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Admin privileges required'
+      } as ApiResponse);
+    }
     
     const updatedUser = await userService.updateUser(userId, updates);
+    
+    console.log(`✅ Admin ${adminUser.name} updated user ${updatedUser.name}: ${Object.keys(updates).join(', ')}`);
     
     res.json({
       success: true,

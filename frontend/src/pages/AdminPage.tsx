@@ -20,6 +20,16 @@ export default function AdminPage() {
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [userTips, setUserTips] = useState<any[]>([]);
   const [loadingTips, setLoadingTips] = useState(false);
+  
+  // User editing state
+  const [editingUser, setEditingUser] = useState<any>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editUserData, setEditUserData] = useState<any>({});
+  const [savingUser, setSavingUser] = useState(false);
+  
+  // Round games for tip creation
+  const [roundGames, setRoundGames] = useState<any[]>([]);
+  const [loadingGames, setLoadingGames] = useState(false);
 
   if (!currentUser || currentUser.role !== 'admin') {
     return (
@@ -235,17 +245,28 @@ export default function AdminPage() {
     if (!selectedUser || !selectedRound) return;
     
     setLoadingTips(true);
+    setLoadingGames(true);
     try {
-      const response = await fetch(`/api/tips/user/${selectedUser.id}/round/${selectedRound.id}`);
-      const data = await response.json();
+      // Load user tips
+      const tipsResponse = await fetch(`/api/tips/user/${selectedUser.id}/round/${selectedRound.id}`);
+      const tipsData = await tipsResponse.json();
       
-      if (data.success) {
-        setUserTips(data.data);
+      if (tipsData.success) {
+        setUserTips(tipsData.data);
+      }
+
+      // Load round games
+      const gamesResponse = await fetch(`/api/games/round/${selectedRound.id}`);
+      const gamesData = await gamesResponse.json();
+      
+      if (gamesData.success) {
+        setRoundGames(gamesData.data);
       }
     } catch (error) {
-      console.error('Failed to load user tips:', error);
+      console.error('Failed to load user tips and games:', error);
     } finally {
       setLoadingTips(false);
+      setLoadingGames(false);
     }
   };
 
@@ -274,6 +295,89 @@ export default function AdminPage() {
       }
     } catch (error) {
       console.error('Error updating tip:', error);
+    }
+  };
+
+  // Create tip for game where user has no tip
+  const createTip = async (gameId: number, selectedTeam: string, marginPrediction?: number) => {
+    if (!selectedUser || !currentUser) return;
+    
+    try {
+      const response = await fetch('/api/tips', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: currentUser.id, // Admin making the request
+          tip_for_user: selectedUser.name, // User to create tip for
+          tips: [{
+            game_id: gameId,
+            selected_team: selectedTeam,
+            margin_prediction: marginPrediction,
+            squiggle_game_key: `${selectedRound.round_number.toString().padStart(2, '0')}${roundGames.findIndex(g => g.id === gameId) + 1}`
+          }]
+        })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        // Reload tips to show the new tip
+        loadUserTips();
+      } else {
+        console.error('Failed to create tip:', result.message);
+      }
+    } catch (error) {
+      console.error('Error creating tip:', error);
+    }
+  };
+
+  // User editing functions
+  const openEditUser = (user: any) => {
+    setEditingUser(user);
+    setEditUserData({
+      name: user.name,
+      family_group_id: user.family_group_id,
+      role: user.role
+    });
+    setShowEditModal(true);
+  };
+
+  const closeEditModal = () => {
+    setShowEditModal(false);
+    setEditingUser(null);
+    setEditUserData({});
+  };
+
+  const saveUserChanges = async () => {
+    if (!editingUser || !currentUser) return;
+    
+    setSavingUser(true);
+    try {
+      const response = await fetch(`/api/users/${editingUser.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          admin_user_id: currentUser.id,
+          ...editUserData
+        })
+      });
+
+      if (response.ok) {
+        // Refresh users data
+        window.location.reload(); // Simple refresh for now
+        closeEditModal();
+      } else {
+        const error = await response.json();
+        alert(`Failed to update user: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error updating user:', error);
+      alert('Failed to update user');
+    } finally {
+      setSavingUser(false);
     }
   };
 
@@ -442,7 +546,10 @@ export default function AdminPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <button className="text-blue-600 hover:text-blue-900">
+                          <button 
+                            onClick={() => openEditUser(user)}
+                            className="text-blue-600 hover:text-blue-900"
+                          >
                             Edit
                           </button>
                         </td>
@@ -598,9 +705,60 @@ export default function AdminPage() {
                         </div>
                       ))}
                     </div>
+                  ) : roundGames.length > 0 ? (
+                    <div>
+                      <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <p className="text-sm text-yellow-800">
+                          <strong>{selectedUser.name}</strong> has no tips for Round {selectedRound.round_number}. 
+                          You can create tips for any of the games below.
+                        </p>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        {roundGames.map(game => (
+                          <div key={game.id} className="border rounded-lg p-4 bg-gray-50">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                              <div>
+                                <div className="font-medium text-gray-900">
+                                  {game.home_team} vs {game.away_team}
+                                </div>
+                                <div className="text-sm text-gray-600">
+                                  Game {game.game_number} • {new Date(game.start_time).toLocaleDateString()}
+                                </div>
+                              </div>
+                              
+                              <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1">
+                                  Select Team
+                                </label>
+                                <select
+                                  onChange={(e) => {
+                                    if (e.target.value) {
+                                      createTip(game.id, e.target.value);
+                                      e.target.value = ''; // Reset selection
+                                    }
+                                  }}
+                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                >
+                                  <option value="">Create tip...</option>
+                                  <option value={game.home_team}>{game.home_team}</option>
+                                  <option value={game.away_team}>{game.away_team}</option>
+                                </select>
+                              </div>
+
+                              <div className="text-center">
+                                <span className="text-xs text-gray-500">
+                                  No tip created yet
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   ) : (
                     <div className="text-center text-gray-500 py-8">
-                      No tips found for this user and round
+                      {loadingGames ? 'Loading games...' : 'No games found for this round'}
                     </div>
                   )}
                 </div>
@@ -892,6 +1050,81 @@ export default function AdminPage() {
           )}
         </div>
       </div>
+
+      {/* Edit User Modal */}
+      {showEditModal && editingUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">
+              Edit User: {editingUser.name}
+            </h3>
+            
+            <div className="space-y-4">
+              {/* Name Field */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  value={editUserData.name || ''}
+                  onChange={(e) => setEditUserData({...editUserData, name: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Family Group Field */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Family Group
+                </label>
+                <select
+                  value={editUserData.family_group_id || ''}
+                  onChange={(e) => setEditUserData({...editUserData, family_group_id: parseInt(e.target.value)})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {familyGroups?.map(group => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Role Field */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Role
+                </label>
+                <select
+                  value={editUserData.role || ''}
+                  onChange={(e) => setEditUserData({...editUserData, role: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="user">User</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={closeEditModal}
+                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveUserChanges}
+                disabled={savingUser}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+              >
+                {savingUser ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

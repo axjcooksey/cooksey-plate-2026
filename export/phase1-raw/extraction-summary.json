@@ -1,0 +1,162 @@
+{
+  "totalSheets": 31,
+  "sheets": [
+    {
+      "name": "Summary",
+      "rows": 36,
+      "columns": 14
+    },
+    {
+      "name": "Ladder - Round by Round",
+      "rows": 1000,
+      "columns": 26
+    },
+    {
+      "name": "Ladder - Overall",
+      "rows": 979,
+      "columns": 4
+    },
+    {
+      "name": "Current Round",
+      "rows": 1000,
+      "columns": 10
+    },
+    {
+      "name": "Data Feed",
+      "rows": 284,
+      "columns": 29
+    },
+    {
+      "name": "Round 23",
+      "rows": 36,
+      "columns": 14
+    },
+    {
+      "name": "Round 22",
+      "rows": 36,
+      "columns": 14
+    },
+    {
+      "name": "Round 21",
+      "rows": 36,
+      "columns": 14
+    },
+    {
+      "name": "Round 20",
+      "rows": 36,
+      "columns": 14
+    },
+    {
+      "name": "Round 19",
+      "rows": 36,
+      "columns": 14
+    },
+    {
+      "name": "Round 18",
+      "rows": 36,
+      "columns": 14
+    },
+    {
+      "name": "Round 17",
+      "rows": 36,
+      "columns": 14
+    },
+    {
+      "name": "Round 16",
+      "rows": 36,
+      "columns": 14
+    },
+    {
+      "name": "Round 15",
+      "rows": 36,
+      "columns": 14
+    },
+    {
+      "name": "Round 14",
+      "rows": 36,
+      "columns": 14
+    },
+    {
+      "name": "Round 13",
+      "rows": 36,
+      "columns": 14
+    },
+    {
+      "name": "Round 12",
+      "rows": 36,
+      "columns": 14
+    },
+    {
+      "name": "Round 11",
+      "rows": 36,
+      "columns": 14
+    },
+    {
+      "name": "Round 10",
+      "rows": 36,
+      "columns": 14
+    },
+    {
+      "name": "Round 9",
+      "rows": 36,
+      "columns": 14
+    },
+    {
+      "name": "Round 8",
+      "rows": 36,
+      "columns": 14
+    },
+    {
+      "name": "Round 7",
+      "rows": 36,
+      "columns": 14
+    },
+    {
+      "name": "Round 6",
+      "rows": 36,
+      "columns": 14
+    },
+    {
+      "name": "Round 5",
+      "rows": 36,
+      "columns": 14
+    },
+    {
+      "name": "Round 4",
+      "rows": 36,
+      "columns": 14
+    },
+    {
+      "name": "Round 3",
+      "rows": 36,
+      "columns": 14
+    },
+    {
+      "name": "Round 2",
+      "rows": 36,
+      "columns": 14
+    },
+    {
+      "name": "Round 1",
+      "rows": 36,
+      "columns": 14
+    },
+    {
+      "name": "Mail - Does Not Work",
+      "rows": 5,
+      "columns": 2
+    },
+    {
+      "name": "Round 0",
+      "rows": 33,
+      "columns": 14
+    },
+    {
+      "name": "Teams",
+      "rows": 29,
+      "columns": 8
+    }
+  ],
+  "extractedAt": "2025-08-20T10:37:33.514Z",
+  "sourceFile": "../reference/Cooksey Plate 2025 (2).xlsx"
+}
