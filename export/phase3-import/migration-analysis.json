@@ -1,0 +1,90 @@
+{
+  "metadata": {
+    "generatedAt": "2025-08-20T12:18:30.240Z",
+    "purpose": "Migrate historical_tips to application tips table",
+    "sourceTable": "historical_tips",
+    "targetTable": "tips"
+  },
+  "mappings": {
+    "users": {
+      "total": 24,
+      "sample": [
+        {
+          "name": "Alex",
+          "id": 14
+        },
+        {
+          "name": "Anne",
+          "id": 21
+        },
+        {
+          "name": "Ant",
+          "id": 24
+        },
+        {
+          "name": "Billy",
+          "id": 13
+        },
+        {
+          "name": "Charlee",
+          "id": 20
+        }
+      ]
+    },
+    "rounds": {
+      "total": 29,
+      "sample": [
+        {
+          "round_number": 0,
+          "id": 1
+        },
+        {
+          "round_number": 1,
+          "id": 2
+        },
+        {
+          "round_number": 2,
+          "id": 17
+        },
+        {
+          "round_number": 3,
+          "id": 25
+        },
+        {
+          "round_number": 4,
+          "id": 33
+        }
+      ]
+    },
+    "games": {
+      "total": 207,
+      "sample": [
+        {
+          "squiggle_game_key": "001",
+          "id": 832
+        },
+        {
+          "squiggle_game_key": "002",
+          "id": 833
+        },
+        {
+          "squiggle_game_key": "011",
+          "id": 834
+        },
+        {
+          "squiggle_game_key": "012",
+          "id": 835
+        },
+        {
+          "squiggle_game_key": "013",
+          "id": 836
+        }
+      ]
+    }
+  },
+  "validation": {
+    "userMappingComplete": true,
+    "roundMappingComplete": true,
+    "gameMappingComplete": true
+  }
+}
