@@ -43,7 +43,7 @@ export class TipsService {
         }
 
         // Insert or update tip with margin prediction support
-        await this.db.run(`
+        const result = await this.db.run(`
           INSERT OR REPLACE INTO tips 
           (user_id, game_id, squiggle_game_key, round_id, selected_team, margin_prediction, is_margin_game, updated_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
@@ -58,6 +58,12 @@ export class TipsService {
         ]);
 
         submittedCount++;
+        
+        // Auto-update tip correctness if game is complete and we have a new tip ID
+        // TODO: Re-enable auto-update when backend is stable
+        // if (result.lastID) {
+        //   await this.autoUpdateSingleTipCorrectness(result.lastID);
+        // }
 
       } catch (error) {
         console.error(`Failed to submit tip for game ${tip.game_id}:`, error);
@@ -577,11 +583,73 @@ export class TipsService {
       await this.db.run(updateQuery, updateValues);
 
       console.log(`✅ Admin updated tip ${tipId}: ${selectedTeam ? `team=${selectedTeam}` : ''} ${marginPrediction !== undefined ? `margin=${marginPrediction}` : ''}`);
+      
+      // Auto-update tip correctness if game is complete
+      // TODO: Re-enable auto-update when backend is stable
+      // await this.autoUpdateSingleTipCorrectness(tipId);
       return true;
 
     } catch (error) {
       console.error('Error in adminUpdateTip:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Auto-update tip correctness for a specific tip if the game is complete
+   */
+  async autoUpdateSingleTipCorrectness(tipId: number): Promise<void> {
+    try {
+      // Get tip and game information
+      const tipInfo = await this.db.get(`
+        SELECT 
+          t.*,
+          g.id as game_id,
+          g.is_complete,
+          sg.winner
+        FROM tips t
+        LEFT JOIN games g ON t.game_id = g.id
+        LEFT JOIN squiggle_games sg ON g.squiggle_game_key = sg.squiggle_game_key
+        WHERE t.id = ?
+      `, [tipId]);
+
+      if (!tipInfo || !tipInfo.game_id) {
+        return; // Tip or game not found
+      }
+
+      // Only update if game is complete and has a winner
+      if (tipInfo.is_complete && tipInfo.winner) {
+        const isCorrect = tipInfo.selected_team === tipInfo.winner ? 1 : 0;
+        
+        await this.db.run(`
+          UPDATE tips 
+          SET is_correct = ?
+          WHERE id = ?
+        `, [isCorrect, tipId]);
+
+        console.log(`🎯 Auto-updated tip correctness for tip ${tipId}: ${isCorrect ? 'CORRECT' : 'INCORRECT'} (${tipInfo.selected_team} vs winner: ${tipInfo.winner})`);
+      }
+    } catch (error) {
+      console.error('Error in autoUpdateTipCorrectness:', error);
+    }
+  }
+
+  /**
+   * Auto-update tip correctness for all tips when tips are created
+   */
+  async autoUpdateAllTipCorrectness(gameId: number): Promise<void> {
+    try {
+      // Get all tips for this game
+      const tips = await this.db.all(`
+        SELECT t.id FROM tips t WHERE t.game_id = ?
+      `, [gameId]);
+
+      // Update correctness for each tip
+      for (const tip of tips) {
+        await this.autoUpdateSingleTipCorrectness(tip.id);
+      }
+    } catch (error) {
+      console.error('Error in autoUpdateAllTipCorrectness:', error);
     }
   }
 }
