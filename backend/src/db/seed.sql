@@ -54,10 +54,10 @@ INSERT OR IGNORE INTO users (name, family_group_id, role) VALUES
   ('Jayne', 8, 'user'),
   ('Ant', 8, 'user');
 
--- Insert sample round for 2025 (Round 0 - Pre-season)
+-- Insert sample round for 2026 (Opening Round)
 INSERT OR IGNORE INTO rounds (id, round_number, year, status) VALUES 
-  (1, 0, 2025, 'completed'),
-  (2, 1, 2025, 'upcoming');
+  (1, 0, 2026, 'upcoming'),
+  (2, 1, 2026, 'upcoming');
 
 -- Note: Squiggle games, games, and tips will be populated via API integration
 -- Historical data will be imported from Excel via import scripts

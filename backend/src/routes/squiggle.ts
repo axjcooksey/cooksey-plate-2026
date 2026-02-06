@@ -222,7 +222,7 @@ router.get('/stats/:year', async (req, res) => {
     const stats = await db.get(`
       SELECT 
         COUNT(*) as total_games,
-        COUNT(CASE WHEN complete = 1 THEN 1 END) as completed_games,
+        COUNT(CASE WHEN complete = 100 THEN 1 END) as completed_games,
         COUNT(DISTINCT round_number) as total_rounds,
         MIN(date) as season_start,
         MAX(date) as season_end
@@ -234,7 +234,7 @@ router.get('/stats/:year', async (req, res) => {
       SELECT 
         round_number,
         COUNT(*) as game_count,
-        COUNT(CASE WHEN complete = 1 THEN 1 END) as completed_games
+        COUNT(CASE WHEN complete = 100 THEN 1 END) as completed_games
       FROM squiggle_games 
       WHERE year = ?
       GROUP BY round_number

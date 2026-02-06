@@ -4,6 +4,8 @@ import { useUsers, useFamilyGroups, useRounds } from '../hooks/useApi';
 import { formatDate } from '../utils/helpers';
 import LoadingSpinner from '../components/LoadingSpinner';
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+
 export default function AdminPage() {
   const { currentUser, currentYear } = useApp();
   const { data: users } = useUsers();
@@ -62,8 +64,8 @@ export default function AdminPage() {
     setLoadingScheduler(true);
     try {
       const [statusRes, jobsRes] = await Promise.all([
-        fetch('/api/scheduler/status'),
-        fetch('/api/scheduler/jobs')
+        fetch(`${API_BASE}/api/scheduler/status`),
+        fetch(`${API_BASE}/api/scheduler/jobs`)
       ]);
       
       const statusData = await statusRes.json();
@@ -89,8 +91,8 @@ export default function AdminPage() {
       console.log('🔄 Loading sync logs and scheduler jobs...');
       
       const [syncResponse, jobsResponse] = await Promise.all([
-        fetch('/api/squiggle/sync-logs'),
-        fetch('/api/scheduler/jobs')
+        fetch(`${API_BASE}/api/squiggle/sync-logs`),
+        fetch(`${API_BASE}/api/scheduler/jobs`)
       ]);
       
       console.log('📡 API Response Status:', syncResponse.status, jobsResponse.status);
@@ -128,7 +130,7 @@ export default function AdminPage() {
           status: 'success',
           records_processed: 216,
           created_at: new Date(Date.now() - 6 * 3600000).toISOString(), // 6 hours ago
-          file_name: 'squiggle_2025.json'
+          file_name: 'squiggle_2026.json'
         },
         latestTeamsSync: {
           id: 2,
@@ -166,7 +168,7 @@ export default function AdminPage() {
 
   const handleTriggerJob = async (jobId: string) => {
     try {
-      const response = await fetch(`/api/scheduler/trigger/${jobId}`, {
+      const response = await fetch(`${API_BASE}/api/scheduler/trigger/${jobId}`, {
         method: 'POST'
       });
       
@@ -185,7 +187,7 @@ export default function AdminPage() {
 
   const handleSchedulerToggle = async (enable: boolean) => {
     try {
-      const endpoint = enable ? '/api/scheduler/enable' : '/api/scheduler/disable';
+      const endpoint = enable ? `${API_BASE}/api/scheduler/enable` : `${API_BASE}/api/scheduler/disable`;
       const response = await fetch(endpoint, { method: 'POST' });
       const result = await response.json();
       
@@ -202,7 +204,7 @@ export default function AdminPage() {
   const handleSyncAll = async () => {
     setSyncingData(true);
     try {
-      const response = await fetch('/api/scheduler/sync-all', {
+      const response = await fetch(`${API_BASE}/api/scheduler/sync-all`, {
         method: 'POST'
       });
       
@@ -223,7 +225,7 @@ export default function AdminPage() {
   const handleSyncSquiggleData = async () => {
     setSyncingData(true);
     try {
-      const response = await fetch(`/api/squiggle/update/${currentYear}`, {
+      const response = await fetch(`${API_BASE}/api/squiggle/update/${currentYear}`, {
         method: 'POST'
       });
       
@@ -248,15 +250,15 @@ export default function AdminPage() {
     setLoadingGames(true);
     try {
       // Load user tips
-      const tipsResponse = await fetch(`/api/tips/user/${selectedUser.id}/round/${selectedRound.id}`);
+      const tipsResponse = await fetch(`${API_BASE}/api/tips/user/${selectedUser.id}/round/${selectedRound.id}`);
       const tipsData = await tipsResponse.json();
       
       if (tipsData.success) {
         setUserTips(tipsData.data);
       }
 
-      // Load round games
-      const gamesResponse = await fetch(`/api/games/round/${selectedRound.id}`);
+      // Load round games (always load so we can show games even when user has no tips)
+      const gamesResponse = await fetch(`${API_BASE}/api/rounds/${selectedRound.id}/games`);
       const gamesData = await gamesResponse.json();
       
       if (gamesData.success) {
@@ -272,7 +274,7 @@ export default function AdminPage() {
 
   const updateTip = async (tipId: number, selectedTeam?: string, marginPrediction?: number) => {
     try {
-      const response = await fetch(`/api/tips/${tipId}/admin-update`, {
+      const response = await fetch(`${API_BASE}/api/tips/${tipId}/admin-update`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -303,7 +305,12 @@ export default function AdminPage() {
     if (!selectedUser || !currentUser) return;
     
     try {
-      const response = await fetch('/api/tips', {
+      // Find the game to get the correct squiggle_game_key
+      const game = roundGames.find(g => g.id === gameId);
+      const squiggleGameKey = game?.squiggle_game_key || 
+        `${selectedRound.round_number.toString().padStart(2, '0')}${roundGames.findIndex(g => g.id === gameId) + 1}`;
+      
+      const response = await fetch(`${API_BASE}/api/tips`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -315,7 +322,7 @@ export default function AdminPage() {
             game_id: gameId,
             selected_team: selectedTeam,
             margin_prediction: marginPrediction,
-            squiggle_game_key: `${selectedRound.round_number.toString().padStart(2, '0')}${roundGames.findIndex(g => g.id === gameId) + 1}`
+            squiggle_game_key: squiggleGameKey
           }]
         })
       });
@@ -354,7 +361,7 @@ export default function AdminPage() {
     
     setSavingUser(true);
     try {
-      const response = await fetch(`/api/users/${editingUser.id}`, {
+      const response = await fetch(`${API_BASE}/api/users/${editingUser.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -365,13 +372,14 @@ export default function AdminPage() {
         })
       });
 
-      if (response.ok) {
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
         // Refresh users data
-        window.location.reload(); // Simple refresh for now
         closeEditModal();
+        window.location.reload();
       } else {
-        const error = await response.json();
-        alert(`Failed to update user: ${error.error}`);
+        alert(`Failed to update user: ${result.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Error updating user:', error);
@@ -646,119 +654,123 @@ export default function AdminPage() {
                     </button>
                   </div>
 
-                  {loadingTips ? (
+                  {loadingTips || loadingGames ? (
                     <div className="flex justify-center py-8">
                       <LoadingSpinner />
                     </div>
-                  ) : userTips.length > 0 ? (
-                    <div className="space-y-4">
-                      {userTips.map(tip => (
-                        <div key={tip.id} className="border rounded-lg p-4">
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-                            <div>
-                              <div className="font-medium text-gray-900">
-                                {tip.home_team} vs {tip.away_team}
-                              </div>
-                              <div className="text-sm text-gray-600">
-                                Game {tip.game_number} • {new Date(tip.start_time).toLocaleDateString()}
-                              </div>
-                            </div>
-                            
-                            <div>
-                              <label className="block text-xs font-medium text-gray-500 mb-1">
-                                Selected Team
-                              </label>
-                              <select
-                                value={tip.selected_team || ''}
-                                onChange={(e) => updateTip(tip.id, e.target.value, tip.margin_prediction)}
-                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                              >
-                                <option value="">No selection</option>
-                                <option value={tip.home_team}>{tip.home_team}</option>
-                                <option value={tip.away_team}>{tip.away_team}</option>
-                              </select>
-                            </div>
-
-                            <div>
-                              <label className="block text-xs font-medium text-gray-500 mb-1">
-                                Margin Prediction
-                              </label>
-                              <input
-                                type="number"
-                                value={tip.margin_prediction || ''}
-                                onChange={(e) => updateTip(tip.id, tip.selected_team, parseInt(e.target.value) || undefined)}
-                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                placeholder="Margin"
-                              />
-                            </div>
-                          </div>
-
-                          {tip.is_correct !== null && (
-                            <div className="mt-2 text-xs">
-                              <span className={`px-2 py-1 rounded-full ${
-                                tip.is_correct ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                              }`}>
-                                {tip.is_correct ? '✓ Correct' : '✗ Incorrect'}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
                   ) : roundGames.length > 0 ? (
                     <div>
-                      <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                        <p className="text-sm text-yellow-800">
-                          <strong>{selectedUser.name}</strong> has no tips for Round {selectedRound.round_number}. 
-                          You can create tips for any of the games below.
-                        </p>
-                      </div>
+                      {/* Show info banner about tips status */}
+                      {userTips.length === 0 && (
+                        <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                          <p className="text-sm text-yellow-800">
+                            <strong>{selectedUser.name}</strong> has no tips for Round {selectedRound.round_number}. 
+                            You can create tips for any of the games below.
+                          </p>
+                        </div>
+                      )}
+                      {userTips.length > 0 && userTips.length < roundGames.length && (
+                        <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                          <p className="text-sm text-blue-800">
+                            <strong>{selectedUser.name}</strong> has tipped {userTips.length} of {roundGames.length} games for Round {selectedRound.round_number}. 
+                            You can create or edit tips below.
+                          </p>
+                        </div>
+                      )}
                       
                       <div className="space-y-4">
-                        {roundGames.map(game => (
-                          <div key={game.id} className="border rounded-lg p-4 bg-gray-50">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-                              <div>
-                                <div className="font-medium text-gray-900">
-                                  {game.home_team} vs {game.away_team}
+                        {roundGames.map(game => {
+                          const existingTip = userTips.find(t => t.game_id === game.id);
+                          
+                          return existingTip ? (
+                            /* Game WITH existing tip - show edit controls */
+                            <div key={game.id} className="border rounded-lg p-4">
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                                <div>
+                                  <div className="font-medium text-gray-900">
+                                    {game.home_team} vs {game.away_team}
+                                  </div>
+                                  <div className="text-sm text-gray-600">
+                                    {game.venue} • {new Date(game.start_time).toLocaleDateString()}
+                                  </div>
                                 </div>
-                                <div className="text-sm text-gray-600">
-                                  Game {game.game_number} • {new Date(game.start_time).toLocaleDateString()}
+                                
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-500 mb-1">
+                                    Selected Team
+                                  </label>
+                                  <select
+                                    value={existingTip.selected_team || ''}
+                                    onChange={(e) => updateTip(existingTip.id, e.target.value, existingTip.margin_prediction)}
+                                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                  >
+                                    <option value="">No selection</option>
+                                    <option value={game.home_team}>{game.home_team}</option>
+                                    <option value={game.away_team}>{game.away_team}</option>
+                                  </select>
                                 </div>
-                              </div>
-                              
-                              <div>
-                                <label className="block text-xs font-medium text-gray-500 mb-1">
-                                  Select Team
-                                </label>
-                                <select
-                                  onChange={(e) => {
-                                    if (e.target.value) {
-                                      createTip(game.id, e.target.value);
-                                      e.target.value = ''; // Reset selection
-                                    }
-                                  }}
-                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                >
-                                  <option value="">Create tip...</option>
-                                  <option value={game.home_team}>{game.home_team}</option>
-                                  <option value={game.away_team}>{game.away_team}</option>
-                                </select>
-                              </div>
 
-                              <div className="text-center">
-                                <span className="text-xs text-gray-500">
-                                  No tip created yet
-                                </span>
+                                <div>
+                                  {existingTip.is_correct !== null && existingTip.is_correct !== undefined ? (
+                                    <span className={`px-2 py-1 text-xs rounded-full ${
+                                      existingTip.is_correct ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                    }`}>
+                                      {existingTip.is_correct ? 'Correct' : 'Incorrect'}
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-600">
+                                      Tip submitted
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          ) : (
+                            /* Game WITHOUT tip - show create controls */
+                            <div key={game.id} className="border border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                                <div>
+                                  <div className="font-medium text-gray-900">
+                                    {game.home_team} vs {game.away_team}
+                                  </div>
+                                  <div className="text-sm text-gray-600">
+                                    {game.venue} • {new Date(game.start_time).toLocaleDateString()}
+                                  </div>
+                                </div>
+                                
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-500 mb-1">
+                                    Select Team
+                                  </label>
+                                  <select
+                                    onChange={(e) => {
+                                      if (e.target.value) {
+                                        createTip(game.id, e.target.value);
+                                      }
+                                    }}
+                                    defaultValue=""
+                                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                  >
+                                    <option value="">Create tip...</option>
+                                    <option value={game.home_team}>{game.home_team}</option>
+                                    <option value={game.away_team}>{game.away_team}</option>
+                                  </select>
+                                </div>
+
+                                <div className="text-center">
+                                  <span className="text-xs text-gray-500">
+                                    No tip yet
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   ) : (
                     <div className="text-center text-gray-500 py-8">
-                      {loadingGames ? 'Loading games...' : 'No games found for this round'}
+                      No games found for this round
                     </div>
                   )}
                 </div>

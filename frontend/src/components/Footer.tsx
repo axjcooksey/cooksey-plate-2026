@@ -6,7 +6,7 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <div className="flex flex-col sm:flex-row justify-between items-center text-sm text-gray-600">
           <div>
-            <p>&copy; 2025 Cooksey Family. AFL Tipping Competition.</p>
+            <p>&copy; 2026 Cooksey Family. AFL Tipping Competition.</p>
           </div>
           <div className="mt-2 sm:mt-0">
             <p>

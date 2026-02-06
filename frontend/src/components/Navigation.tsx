@@ -57,7 +57,7 @@ export default function Navigation() {
         
         <div className="px-4 py-4 border-t border-gray-200">
           <div className="text-xs text-gray-500">
-            AFL Season 2025
+            AFL Season 2026
           </div>
         </div>
       </div>

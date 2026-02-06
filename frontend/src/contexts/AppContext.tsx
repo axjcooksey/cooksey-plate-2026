@@ -34,7 +34,7 @@ export function AppProvider({ children }: AppProviderProps) {
   const [currentRound, setCurrentRound] = useState<Round | null>(null);
   const [loading, setLoading] = useState(false);
   
-  const currentYear = parseInt(import.meta.env.VITE_CURRENT_YEAR || '2025');
+  const currentYear = parseInt(import.meta.env.VITE_CURRENT_YEAR || '2026');
 
   // Computed properties
   const isAdmin = currentUser?.role === 'admin';

@@ -197,9 +197,9 @@ async function createTables() {
       await db.run('INSERT OR IGNORE INTO users (name, family_group_id, role) VALUES (?, ?, ?)', [name, groupId, role]);
     }
 
-    // Sample rounds
-    await db.run('INSERT OR IGNORE INTO rounds (id, round_number, year, status) VALUES (1, 0, 2025, "completed")');
-    await db.run('INSERT OR IGNORE INTO rounds (id, round_number, year, status) VALUES (2, 1, 2025, "upcoming")');
+    // Sample rounds for 2026 season
+    await db.run('INSERT OR IGNORE INTO rounds (id, round_number, year, status) VALUES (1, 0, 2026, "upcoming")');
+    await db.run('INSERT OR IGNORE INTO rounds (id, round_number, year, status) VALUES (2, 1, 2026, "upcoming")');
 
     // Verify setup
     const familyGroups = await db.get('SELECT COUNT(*) as count FROM family_groups');

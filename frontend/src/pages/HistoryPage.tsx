@@ -264,7 +264,7 @@ export default function HistoryPage() {
               {(!allTips || allTips.length === 0) && (
                 <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <div className="text-blue-800 text-sm">
-                    <strong>Empty Matrix:</strong> This shows all tipsters and available games for this round. 
+                    This shows all tipsters and available games for this round. 
                     Tips will appear here once they're submitted or imported.
                   </div>
                 </div>

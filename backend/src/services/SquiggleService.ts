@@ -49,7 +49,7 @@ export class SquiggleService {
       const response = await axios.get<SquiggleApiGamesResponse>(url, {
         timeout: 10000, // 10 second timeout
         headers: {
-          'User-Agent': 'Cooksey-Plate-2025/1.0'
+          'User-Agent': 'Cooksey-Plate-2026/1.0'
         }
       });
 
@@ -98,7 +98,7 @@ export class SquiggleService {
       const response = await axios.get<SquiggleApiTeamsResponse>(url, {
         timeout: 10000,
         headers: {
-          'User-Agent': 'Cooksey-Plate-2025/1.0'
+          'User-Agent': 'Cooksey-Plate-2026/1.0'
         }
       });
 

@@ -416,9 +416,9 @@ export class TipsService {
     const roundGames = await this.db.all(`
       SELECT id, start_time FROM games g
       LEFT JOIN rounds r ON g.round_id = r.id
-      WHERE r.round_number = ? AND r.year = 2025
+      WHERE r.round_number = ? AND r.year = (SELECT year FROM rounds WHERE round_number = ? LIMIT 1)
       ORDER BY g.start_time
-    `, [roundNumber]);
+    `, [roundNumber, roundNumber]);
     
     if (!roundGames || roundGames.length === 0) return false;
     

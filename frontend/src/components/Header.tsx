@@ -16,7 +16,7 @@ export default function Header({ title }: HeaderProps) {
           <div className="flex items-center space-x-4">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
-                {title || 'Cooksey Plate 2025'}
+                {title || 'Cooksey Plate 2026'}
               </h1>
               {currentRound && (
                 <p className="text-sm text-gray-600">
