@@ -13,6 +13,10 @@
     "test-all-apis": "npx ts-node scripts/test-all-apis.ts",
     "test-squiggle-complete": "npx ts-node scripts/test-squiggle-complete.ts",
     "print-games": "npx ts-node scripts/print-games.ts",
+    "populate-round0": "npx ts-node scripts/test-round0-tips.ts",
+    "simulate-time": "npx ts-node scripts/simulate-time.ts",
+    "rollback-test": "npx ts-node scripts/rollback-test-data.ts",
+    "status": "npx ts-node scripts/check-status.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
