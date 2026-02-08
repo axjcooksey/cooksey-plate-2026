@@ -93,6 +93,26 @@ export default function HistoryPage() {
 
   const { users, games, matrix } = createTipsMatrix();
 
+  // Get current user's family group members
+  const getFamilyGroupMembers = () => {
+    if (!currentUser || !allUsers) return [];
+    
+    return allUsers.filter(user => 
+      user.family_group_id === currentUser.family_group_id
+    ).map(user => ({
+      id: user.id,
+      name: user.name,
+      family_group: user.family_group_name || user.family_group?.name
+    })).sort((a, b) => {
+      // Put current user first
+      if (a.id === currentUser.id) return -1;
+      if (b.id === currentUser.id) return 1;
+      return a.name.localeCompare(b.name);
+    });
+  };
+
+  const familyGroupMembers = getFamilyGroupMembers();
+
   // Check if the selected round is in lockout period
   const isRoundInLockout = () => {
     // Admins can always see tips, regardless of lockout
@@ -269,98 +289,202 @@ export default function HistoryPage() {
                   </div>
                 </div>
               )}
-              <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                {/* Header Rows */}
-                <thead>
-                  {/* Teams Row */}
-                  <tr>
-                    <th rowSpan={2} className="sticky left-0 z-10 bg-gray-50 border border-gray-300 p-3 text-left font-semibold text-gray-900 min-w-[150px]">
-                      Tipster
-                    </th>
-                    {games.map((game) => (
-                      <th key={`teams-${game.id}`} className="border border-gray-300 p-2 bg-gray-50 text-center min-w-[120px]">
-                        <div className="text-xs font-semibold text-gray-900">
-                          {game.home_team}
-                        </div>
-                        <div className="text-xs text-gray-600 mb-1">vs</div>
-                        <div className="text-xs font-semibold text-gray-900">
-                          {game.away_team}
-                        </div>
-                      </th>
-                    ))}
-                  </tr>
-                  
-                  {/* Date & Venue Row */}
-                  <tr>
-                    {games.map((game) => (
-                      <th key={`details-${game.id}`} className="border border-gray-300 p-2 bg-gray-50 text-center min-w-[120px]">
-                        <div className="text-xs text-gray-500">
-                          {formatDate(game.start_time, 'dd/MM HH:mm')}
-                        </div>
-                        <div className="text-xs text-gray-400 mt-1">
-                          {game.venue}
-                        </div>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
 
-                {/* Body Rows */}
-                <tbody>
-                  {users.map((user) => {
-                    const canViewUserTips = shouldShowUserTips(user.id);
-                    const isCurrentUser = user.id === currentUser?.id;
-                    return (
-                      <tr key={user.id} className={`hover:bg-gray-50 ${!canViewUserTips ? 'opacity-60' : ''}`}>
-                        <td className={`sticky left-0 z-10 border border-gray-300 p-3 font-medium ${
-                          !canViewUserTips ? 'bg-gray-100 text-gray-500' : 'bg-white text-gray-900'
-                        }`}>
-                          <div className="flex items-center">
-                            {isCurrentUser && <span className="text-blue-500 mr-1">👤</span>}
-                            {user.name}
-                            {!canViewUserTips && <span className="ml-2 text-gray-400">🔒</span>}
-                          </div>
-                        </td>
-                        {games.map((game) => {
-                          const tip = matrix[user.id]?.[game.id];
+              {/* Your Tips Section */}
+              {familyGroupMembers.length > 0 && (
+                <div className="mb-8 p-4 bg-blue-50 border-2 border-blue-200 rounded-lg">
+                  <h3 className="text-lg font-semibold mb-4 text-gray-900">
+                    {familyGroupMembers.length === 1 
+                      ? 'Your Tips' 
+                      : `Your Family Group Tips (${currentUser?.family_group_name || currentUser?.family_group?.name || 'Unknown'})`}
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                      {/* Header Rows */}
+                      <thead>
+                        {/* Teams Row */}
+                        <tr>
+                          <th rowSpan={2} className="sticky left-0 z-10 bg-gray-50 border border-gray-300 p-3 text-left font-semibold text-gray-900 min-w-[150px]">
+                            Tipster
+                          </th>
+                          {games.map((game) => (
+                            <th key={`teams-${game.id}`} className="border border-gray-300 p-2 bg-gray-50 text-center min-w-[120px]">
+                              <div className="text-xs font-semibold text-gray-900">
+                                {game.home_team}
+                              </div>
+                              <div className="text-xs text-gray-600 mb-1">vs</div>
+                              <div className="text-xs font-semibold text-gray-900">
+                                {game.away_team}
+                              </div>
+                            </th>
+                          ))}
+                        </tr>
+                        
+                        {/* Date & Venue Row */}
+                        <tr>
+                          {games.map((game) => (
+                            <th key={`details-${game.id}`} className="border border-gray-300 p-2 bg-gray-50 text-center min-w-[120px]">
+                              <div className="text-xs text-gray-500">
+                                {formatDate(game.start_time, 'dd/MM HH:mm')}
+                              </div>
+                              <div className="text-xs text-gray-400 mt-1">
+                                {game.venue}
+                              </div>
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+
+                      {/* Body Rows */}
+                      <tbody>
+                        {familyGroupMembers.map((user) => {
+                          const canViewUserTips = shouldShowUserTips(user.id);
+                          const isCurrentUser = user.id === currentUser?.id;
                           return (
-                            <td key={`${user.id}-${game.id}`} className="border border-gray-300 p-1">
-                              {canViewUserTips && tip ? (
-                                <div className={`
-                                  p-2 rounded text-center text-xs font-medium
-                                  ${tip.is_correct === true ? 'bg-green-100 text-green-800 border border-green-300' : 
-                                    tip.is_correct === false ? 'bg-red-100 text-red-800 border border-red-300' : 
-                                    'bg-amber-50 text-amber-700 border border-amber-200'}
-                                `}>
-                                  <div className="font-semibold">{tip.selected_team}</div>
-                                  {tip.is_correct !== null && (
-                                    <div className="mt-1">
-                                      {tip.is_correct ? '✓' : '✗'}
-                                    </div>
-                                  )}
+                            <tr key={user.id} className={`hover:bg-gray-50 ${isCurrentUser ? 'bg-blue-50' : ''}`}>
+                              <td className={`sticky left-0 z-10 border border-gray-300 p-3 font-medium ${
+                                isCurrentUser ? 'bg-blue-50' : 'bg-white'
+                              } text-gray-900`}>
+                                <div className="flex items-center">
+                                  {isCurrentUser && <span className="text-blue-500 mr-1">👤</span>}
+                                  {user.name}
                                 </div>
-                              ) : !canViewUserTips && tip ? (
-                                <div className="p-2 rounded text-center bg-gray-100 border border-gray-300 min-h-[50px] flex items-center justify-center">
-                                  <div className="text-gray-400 text-xs">🔒</div>
-                                </div>
-                              ) : canViewUserTips && !tip ? (
-                                <div className="p-2 rounded text-center bg-gray-50 border border-gray-200 min-h-[50px] flex items-center justify-center">
-                                  <div className="text-gray-300 text-xs">—</div>
-                                </div>
-                              ) : (
-                                <div className="p-2 rounded text-center bg-gray-100 border border-gray-300 min-h-[50px] flex items-center justify-center">
-                                  <div className="text-gray-400 text-xs">—</div>
-                                </div>
-                              )}
-                            </td>
+                              </td>
+                              {games.map((game) => {
+                                const tip = matrix[user.id]?.[game.id];
+                                return (
+                                  <td key={`${user.id}-${game.id}`} className="border border-gray-300 p-1">
+                                    {canViewUserTips && tip ? (
+                                      <div className={`
+                                        p-2 rounded text-center text-xs font-medium
+                                        ${tip.is_correct === true ? 'bg-green-100 text-green-800 border border-green-300' : 
+                                          tip.is_correct === false ? 'bg-red-100 text-red-800 border border-red-300' : 
+                                          'bg-amber-50 text-amber-700 border border-amber-200'}
+                                      `}>
+                                        <div className="font-semibold">{tip.selected_team}</div>
+                                        {tip.is_correct !== null && (
+                                          <div className="mt-1">
+                                            {tip.is_correct ? '✓' : '✗'}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ) : canViewUserTips && !tip ? (
+                                      <div className="p-2 rounded text-center bg-gray-50 border border-gray-200 min-h-[50px] flex items-center justify-center">
+                                        <div className="text-gray-300 text-xs">—</div>
+                                      </div>
+                                    ) : (
+                                      <div className="p-2 rounded text-center bg-gray-100 border border-gray-300 min-h-[50px] flex items-center justify-center">
+                                        <div className="text-gray-400 text-xs">—</div>
+                                      </div>
+                                    )}
+                                  </td>
+                                );
+                              })}
+                            </tr>
                           );
                         })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* All Tips Section */}
+              <div className="mb-8">
+                <h3 className="text-lg font-semibold mb-4 text-gray-900">All Tips</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    {/* Header Rows */}
+                    <thead>
+                      {/* Teams Row */}
+                      <tr>
+                        <th rowSpan={2} className="sticky left-0 z-10 bg-gray-50 border border-gray-300 p-3 text-left font-semibold text-gray-900 min-w-[150px]">
+                          Tipster
+                        </th>
+                        {games.map((game) => (
+                          <th key={`teams-${game.id}`} className="border border-gray-300 p-2 bg-gray-50 text-center min-w-[120px]">
+                            <div className="text-xs font-semibold text-gray-900">
+                              {game.home_team}
+                            </div>
+                            <div className="text-xs text-gray-600 mb-1">vs</div>
+                            <div className="text-xs font-semibold text-gray-900">
+                              {game.away_team}
+                            </div>
+                          </th>
+                        ))}
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                      
+                      {/* Date & Venue Row */}
+                      <tr>
+                        {games.map((game) => (
+                          <th key={`details-${game.id}`} className="border border-gray-300 p-2 bg-gray-50 text-center min-w-[120px]">
+                            <div className="text-xs text-gray-500">
+                              {formatDate(game.start_time, 'dd/MM HH:mm')}
+                            </div>
+                            <div className="text-xs text-gray-400 mt-1">
+                              {game.venue}
+                            </div>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+
+                    {/* Body Rows */}
+                    <tbody>
+                      {users.map((user) => {
+                        const canViewUserTips = shouldShowUserTips(user.id);
+                        const isCurrentUser = user.id === currentUser?.id;
+                        return (
+                          <tr key={user.id} className={`hover:bg-gray-50 ${!canViewUserTips ? 'opacity-60' : ''} ${isCurrentUser ? 'bg-blue-50' : ''}`}>
+                            <td className={`sticky left-0 z-10 border border-gray-300 p-3 font-medium ${
+                              !canViewUserTips ? 'bg-gray-100 text-gray-500' : isCurrentUser ? 'bg-blue-50 text-gray-900' : 'bg-white text-gray-900'
+                            }`}>
+                              <div className="flex items-center">
+                                {isCurrentUser && <span className="text-blue-500 mr-1">👤</span>}
+                                {user.name}
+                                {!canViewUserTips && <span className="ml-2 text-gray-400">🔒</span>}
+                              </div>
+                            </td>
+                            {games.map((game) => {
+                              const tip = matrix[user.id]?.[game.id];
+                              return (
+                                <td key={`${user.id}-${game.id}`} className="border border-gray-300 p-1">
+                                  {canViewUserTips && tip ? (
+                                    <div className={`
+                                      p-2 rounded text-center text-xs font-medium
+                                      ${tip.is_correct === true ? 'bg-green-100 text-green-800 border border-green-300' : 
+                                        tip.is_correct === false ? 'bg-red-100 text-red-800 border border-red-300' : 
+                                        'bg-amber-50 text-amber-700 border border-amber-200'}
+                                    `}>
+                                      <div className="font-semibold">{tip.selected_team}</div>
+                                      {tip.is_correct !== null && (
+                                        <div className="mt-1">
+                                          {tip.is_correct ? '✓' : '✗'}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ) : !canViewUserTips && tip ? (
+                                    <div className="p-2 rounded text-center bg-gray-100 border border-gray-300 min-h-[50px] flex items-center justify-center">
+                                      <div className="text-gray-400 text-xs">🔒</div>
+                                    </div>
+                                  ) : canViewUserTips && !tip ? (
+                                    <div className="p-2 rounded text-center bg-gray-50 border border-gray-200 min-h-[50px] flex items-center justify-center">
+                                      <div className="text-gray-300 text-xs">—</div>
+                                    </div>
+                                  ) : (
+                                    <div className="p-2 rounded text-center bg-gray-100 border border-gray-300 min-h-[50px] flex items-center justify-center">
+                                      <div className="text-gray-400 text-xs">—</div>
+                                    </div>
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
               
               {/* Legend */}
@@ -377,7 +501,7 @@ export default function HistoryPage() {
                       <span>Incorrect tip</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 bg-yellow-100 border border-yellow-300 rounded"></div>
+                      <div className="w-4 h-4 bg-amber-50 border border-amber-200 rounded"></div>
                       <span>Pending result</span>
                     </div>
                     <div className="flex items-center gap-2">
