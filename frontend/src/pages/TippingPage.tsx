@@ -6,6 +6,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import { useCountdown } from '../hooks/useCountdown';
 import { ApiService } from '../services/api';
 import type { TipSubmission } from '../types/api';
+import { notify } from '../utils/notifications';
 
 export default function TippingPage() {
   const { currentUser, currentRound, currentYear } = useApp();
@@ -99,8 +100,13 @@ export default function TippingPage() {
         tipSubmissions.push(tipSubmission);
       }
 
-      if (hasValidationErrors || tipSubmissions.length === 0) {
-        return; // Don't auto-save if there are validation errors or no tips
+      if (hasValidationErrors) {
+        notify.warning('Please fix margin prediction errors before saving');
+        return;
+      }
+      
+      if (tipSubmissions.length === 0) {
+        return; // Don't auto-save if there are no tips
       }
 
       // Determine if we're tipping for someone else
@@ -122,6 +128,7 @@ export default function TippingPage() {
       refetchTips();
     } catch (error) {
       console.error('Auto-save failed:', error);
+      notify.error('Failed to auto-save tips. Please try submitting manually.');
     } finally {
       setIsAutoSaving(false);
     }
@@ -275,6 +282,7 @@ export default function TippingPage() {
       // The tip will be reflected in the backend for other users
     } catch (error) {
       console.error('Auto-save failed:', error);
+      notify.error('Failed to save tip. Please try submitting manually.');
       // Tip is already stored as pending from the initial handleTipSelection call
     } finally {
       setIsAutoSaving(false);
@@ -321,11 +329,13 @@ export default function TippingPage() {
       }
 
       if (hasValidationErrors) {
-        return; // Don't submit if there are validation errors
+        notify.error('Please fix all margin prediction errors before submitting');
+        return;
       }
 
       if (tipSubmissions.length === 0) {
-        return; // No tips to submit
+        notify.warning('Please select teams for at least one game');
+        return;
       }
 
       // Determine if we're tipping for someone else
@@ -343,11 +353,13 @@ export default function TippingPage() {
         return updated;
       });
       setAllTipsSubmitted(true);
+      notify.success(`Successfully submitted ${tipSubmissions.length} tip${tipSubmissions.length > 1 ? 's' : ''}!`);
       
       // Don't refetch tips to avoid page scrolling
       // Tips are already managed locally via auto-save and state
     } catch (error) {
       console.error('Failed to submit tips:', error);
+      notify.error('Failed to submit tips. Please try again.');
     } finally {
       setIsSubmittingAll(false);
     }

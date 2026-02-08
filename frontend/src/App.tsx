@@ -7,6 +7,7 @@ import TippingPage from './pages/TippingPage';
 import LadderPage from './pages/LadderPage';
 import HistoryPage from './pages/HistoryPage';
 import AdminPage from './pages/AdminPage';
+import ToastProvider from './components/ToastProvider';
 
 function AppContent() {
   const { currentUser } = useApp();
@@ -34,6 +35,7 @@ function App() {
     <Router>
       <AppProvider>
         <AppContent />
+        <ToastProvider />
       </AppProvider>
     </Router>
   );

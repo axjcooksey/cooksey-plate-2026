@@ -3,6 +3,7 @@ import { useApp } from '../contexts/AppContext';
 import { useUsers, useFamilyGroups, useRounds } from '../hooks/useApi';
 import { formatDate } from '../utils/helpers';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { notify } from '../utils/notifications';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
 
@@ -289,14 +290,15 @@ export default function AdminPage() {
       const result = await response.json();
       
       if (result.success) {
-        console.log('Tip updated successfully');
+        notify.success('Tip updated successfully');
         // Reload tips to reflect changes
         loadUserTips();
       } else {
-        console.error('Failed to update tip:', result.message);
+        notify.error(`Failed to update tip: ${result.message}`);
       }
     } catch (error) {
       console.error('Error updating tip:', error);
+      notify.error('Failed to update tip');
     }
   };
 
@@ -329,13 +331,15 @@ export default function AdminPage() {
 
       const result = await response.json();
       if (result.success) {
+        notify.success('Tip created successfully');
         // Reload tips to show the new tip
         loadUserTips();
       } else {
-        console.error('Failed to create tip:', result.message);
+        notify.error(`Failed to create tip: ${result.message}`);
       }
     } catch (error) {
       console.error('Error creating tip:', error);
+      notify.error('Failed to create tip');
     }
   };
 
@@ -375,15 +379,16 @@ export default function AdminPage() {
       const result = await response.json();
       
       if (response.ok && result.success) {
+        notify.success('User updated successfully');
         // Refresh users data
         closeEditModal();
         window.location.reload();
       } else {
-        alert(`Failed to update user: ${result.error || 'Unknown error'}`);
+        notify.error(`Failed to update user: ${result.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Error updating user:', error);
-      alert('Failed to update user');
+      notify.error('Failed to update user');
     } finally {
       setSavingUser(false);
     }

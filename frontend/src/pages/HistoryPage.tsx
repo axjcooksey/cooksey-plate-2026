@@ -331,12 +331,14 @@ export default function HistoryPage() {
                                   p-2 rounded text-center text-xs font-medium
                                   ${tip.is_correct === true ? 'bg-green-100 text-green-800 border border-green-300' : 
                                     tip.is_correct === false ? 'bg-red-100 text-red-800 border border-red-300' : 
-                                    'bg-yellow-100 text-yellow-800 border border-yellow-300'}
+                                    'bg-blue-40 text-blue-700 border border-blue-200'}
                                 `}>
                                   <div className="font-semibold">{tip.selected_team}</div>
-                                  <div className="mt-1">
-                                    {tip.is_correct === true ? '✓' : tip.is_correct === false ? '✗' : '⏳'}
-                                  </div>
+                                  {tip.is_correct !== null && (
+                                    <div className="mt-1">
+                                      {tip.is_correct ? '✓' : '✗'}
+                                    </div>
+                                  )}
                                 </div>
                               ) : !canViewUserTips && tip ? (
                                 <div className="p-2 rounded text-center bg-gray-100 border border-gray-300 min-h-[50px] flex items-center justify-center">
