@@ -30,9 +30,18 @@ export class TipsService {
           continue;
         }
 
-        // Check if round is still open for tips
-        if (game.lockout_time && new Date() > new Date(game.lockout_time)) {
-          console.warn(`Round ${game.round_number} locked, skipping tip for game ${tip.game_id}`);
+        // Check if individual game has started (per-game lockout)
+        const now = new Date();
+        const gameStartTime = new Date(game.start_time);
+
+        if (gameStartTime <= now) {
+          console.warn(`Game ${tip.game_id} (${game.home_team} vs ${game.away_team}) has already started at ${game.start_time}, tip rejected`);
+          continue;
+        }
+
+        // Check if game is complete
+        if (game.is_complete) {
+          console.warn(`Game ${tip.game_id} is already complete, tip rejected`);
           continue;
         }
 
@@ -160,16 +169,40 @@ export class TipsService {
   }
 
   /**
-   * Check if round is open for tipping
+   * Check if round has started (first game has begun)
+   * Renamed from isRoundOpen for clarity
    */
-  async isRoundOpen(roundId: number): Promise<boolean> {
+  async hasRoundStarted(roundId: number): Promise<boolean> {
     const round = await this.db.get(`
       SELECT lockout_time FROM rounds WHERE id = ?
     `, [roundId]);
 
-    if (!round || !round.lockout_time) return true;
+    if (!round || !round.lockout_time) return false;
 
-    return new Date() <= new Date(round.lockout_time);
+    return new Date() > new Date(round.lockout_time);
+  }
+
+  /**
+   * Check if round is open for tipping (legacy method - kept for compatibility)
+   * Note: With per-game lockout, this now checks if first game has started
+   */
+  async isRoundOpen(roundId: number): Promise<boolean> {
+    return !(await this.hasRoundStarted(roundId));
+  }
+
+  /**
+   * Check if any games in the round are still available for tipping
+   */
+  async hasAvailableGames(roundId: number): Promise<boolean> {
+    const count = await this.db.get(`
+      SELECT COUNT(*) as available_count
+      FROM games
+      WHERE round_id = ? 
+        AND start_time > datetime('now')
+        AND is_complete = 0
+    `, [roundId]);
+
+    return count && count.available_count > 0;
   }
 
   /**
