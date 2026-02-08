@@ -331,7 +331,7 @@ export default function HistoryPage() {
                                   p-2 rounded text-center text-xs font-medium
                                   ${tip.is_correct === true ? 'bg-green-100 text-green-800 border border-green-300' : 
                                     tip.is_correct === false ? 'bg-red-100 text-red-800 border border-red-300' : 
-                                    'bg-blue-40 text-blue-700 border border-blue-200'}
+                                    'bg-amber-50 text-amber-700 border border-amber-200'}
                                 `}>
                                   <div className="font-semibold">{tip.selected_team}</div>
                                   {tip.is_correct !== null && (
